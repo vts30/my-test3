@@ -19,6 +19,8 @@ spec:
           value: "false"
         - name: N8N_RUNNERS_AUTH_TOKEN
           value: "premeIsMegaCool"
+        - name: EXEC_ENV_VARS_ENABLED
+          value: "true"
         envFrom:
         - secretRef:
             name: scraper-creds
