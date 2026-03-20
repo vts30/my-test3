@@ -69,6 +69,9 @@ kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- ls /usr/local/lib/node_mo
 kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- ls /home/node/node_modules/ 2>/dev/null
 kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- ls /usr/local/lib/node_modules/n8n/node_modules/ 2>/dev/null | grep -i puppet
 kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- ls /usr/local/lib/node_modules/n8n/node_modules/ 2>/dev/null | grep -i crawl
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- which chromium-browser
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- which chromium
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- find /usr/local/lib/node_modules/n8n/node_modules/ -name "firecrawl*" -type d 2>/dev/null
 
 # Quick log check (last 20 lines per container)
 kubectl logs deployment/n8n -n preme-n8n -c n8n --tail=20
