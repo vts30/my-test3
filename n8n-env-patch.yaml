@@ -13,6 +13,8 @@ spec:
           value: "5678"
         - name: N8N_LISTEN_ADDRESS
           value: "0.0.0.0"
+        - name: N8N_WORKER_SERVER_ADDRESS
+          value: "0.0.0.0"
         - name: N8N_DIAGNOSTICS_ENABLED
           value: "false"
         envFrom:

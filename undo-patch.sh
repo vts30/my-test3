@@ -6,6 +6,7 @@ DEPLOYMENT=n8n
 echo "=== Step 1: Remove added env vars from n8n container ==="
 kubectl set env deployment/$DEPLOYMENT -n $NAMESPACE -c n8n \
   N8N_LISTEN_ADDRESS- \
+  N8N_WORKER_SERVER_ADDRESS- \
   N8N_HOST- \
   N8N_PORT- \
   N8N_DIAGNOSTICS_ENABLED- \
