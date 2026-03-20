@@ -23,6 +23,8 @@ spec:
           value: "true"
         - name: N8N_BLOCK_ENV_ACCESS_IN_NODE
           value: "false"
+        - name: NODE_FUNCTION_ALLOW_EXTERNAL
+          value: "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core"
         envFrom:
         - configMapRef:
             name: n8n-app-config
@@ -36,6 +38,8 @@ spec:
           value: "true"
         - name: N8N_BLOCK_ENV_ACCESS_IN_NODE
           value: "false"
+        - name: NODE_FUNCTION_ALLOW_EXTERNAL
+          value: "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core"
         envFrom:
         - secretRef:
             name: scraper-creds
