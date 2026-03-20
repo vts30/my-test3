@@ -23,11 +23,6 @@ spec:
           value: "true"
         - name: N8N_BLOCK_ENV_ACCESS_IN_NODE
           value: "false"
-        envFrom:
-        - configMapRef:
-            name: n8n-app-config
-        - secretRef:
-            name: n8n-app-secret
       - name: task-runner
         env:
         - name: EXEC_ENV_VARS_ENABLED
