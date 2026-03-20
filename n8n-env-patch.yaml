@@ -24,6 +24,10 @@ spec:
         - name: N8N_BLOCK_ENV_ACCESS_IN_NODE
           value: "false"
         envFrom:
+        - configMapRef:
+            name: n8n-app-config
+        - secretRef:
+            name: n8n-app-secret
         - secretRef:
             name: scraper-creds
       - name: task-runner
