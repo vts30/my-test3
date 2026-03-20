@@ -18,7 +18,3 @@ spec:
         envFrom:
         - secretRef:
             name: scraper-creds
-      - name: task-runner
-        envFrom:
-        - secretRef:
-            name: scraper-creds
