@@ -57,6 +57,12 @@ kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- find / -name "puppeteer-e
 # Find where puppeteer-extra is installed in the task-runner container
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- find / -name "puppeteer-extra" -type d 2>/dev/null | head -5
 
+# Search all puppeteer-related packages
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- find /usr /home /app /opt -name "puppeteer*" -type d 2>/dev/null
+
+# Find chromium browser
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- find /usr /home /app /opt -name "chromium*" 2>/dev/null
+
 # Quick log check (last 20 lines per container)
 kubectl logs deployment/n8n -n preme-n8n -c n8n --tail=20
 kubectl logs deployment/n8n -n preme-n8n -c task-runner --tail=20
