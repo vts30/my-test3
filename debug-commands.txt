@@ -74,6 +74,9 @@ docker inspect my-n8n:latest --format '{{.Config.WorkingDir}}'
 # Test puppeteer in local image
 docker run --rm my-n8n:latest /usr/local/bin/node -e "require('puppeteer-extra'); console.log('OK')"
 
+# Override entrypoint to test node directly
+docker run --rm --entrypoint /usr/local/bin/node my-n8n:latest -e "require('puppeteer-extra'); console.log('OK')"
+
 # Check what node modules are available
 kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- find /usr /home /app /opt -name "crawlee" -type d 2>/dev/null
 kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- ls /usr/local/lib/node_modules/ 2>/dev/null
