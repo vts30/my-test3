@@ -63,6 +63,9 @@ kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- find /usr /home /app /opt
 # Find chromium browser
 kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- find /usr /home /app /opt -name "chromium*" 2>/dev/null
 
+# Install puppeteer packages in task-runner using pnpm
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- pnpm add puppeteer-extra puppeteer-extra-plugin-stealth puppeteer-core --prefix /tmp/pkgs
+
 # Check what node modules are available
 kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- find /usr /home /app /opt -name "crawlee" -type d 2>/dev/null
 kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- ls /usr/local/lib/node_modules/ 2>/dev/null
