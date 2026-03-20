@@ -26,3 +26,18 @@ kubectl set env deployment/n8n -n preme-n8n --list
 
 # Get full deployment spec (useful to compare with working region)
 kubectl get deployment n8n -n preme-n8n -o yaml
+
+# Get only n8n container env vars
+kubectl get deployment n8n -n preme-n8n -o jsonpath='{.spec.template.spec.containers[0].env}' | tr ',' '\n'
+
+# Get only n8n container envFrom (secrets/configmaps)
+kubectl get deployment n8n -n preme-n8n -o jsonpath='{.spec.template.spec.containers[0].envFrom}' | tr ',' '\n'
+
+# Get volume mounts (check if any config files are mounted)
+kubectl get deployment n8n -n preme-n8n -o jsonpath='{.spec.template.spec.volumes}' | tr ',' '\n'
+
+# Check if N8N_RUNNERS_AUTH_TOKEN exists on n8n container
+kubectl get deployment n8n -n preme-n8n -o jsonpath='{.spec.template.spec.containers[0].env}' | grep -i runners
+
+# Check task-runner container env vars
+kubectl get deployment n8n -n preme-n8n -o jsonpath='{.spec.template.spec.containers[1].env}' | tr ',' '\n'
