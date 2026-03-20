@@ -63,6 +63,11 @@ kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- find /usr /home /app /opt
 # Find chromium browser
 kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- find /usr /home /app /opt -name "chromium*" 2>/dev/null
 
+# Check what node modules are available
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- find /usr /home /app /opt -name "crawlee" -type d 2>/dev/null
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- ls /usr/local/lib/node_modules/ 2>/dev/null
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- ls /home/node/node_modules/ 2>/dev/null
+
 # Quick log check (last 20 lines per container)
 kubectl logs deployment/n8n -n preme-n8n -c n8n --tail=20
 kubectl logs deployment/n8n -n preme-n8n -c task-runner --tail=20
