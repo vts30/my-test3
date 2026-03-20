@@ -8,8 +8,8 @@ return [
       id: 'tagesspiegel',
       listUrl:       'https://background.tagesspiegel.de/digitalisierung-und-ki',
       loginUrl:      'https://background.tagesspiegel.de/login',
-      email:         $env.TS_EMAIL,
-      password:      $env.TS_PASSWORD,
+      email:         process.env.TS_EMAIL,
+      password:      process.env.TS_PASSWORD,
       requiresLogin: true,
       source:        'tagesspiegel',
     }
