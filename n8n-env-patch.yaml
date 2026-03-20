@@ -9,6 +9,8 @@ spec:
       containers:
       - name: n8n
         env:
+        - name: N8N_PORT
+          value: "5678"
         - name: NODE_FUNCTION_ALLOW_EXTERNAL
           value: "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core,crawlee"
         envFrom:
