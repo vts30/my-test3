@@ -1,5 +1,15 @@
 ## Debug Commands for n8n CrashLoopBackOff
 
+# ── APPLY PATCHES ─────────────────────────────────────────────────────────────
+# Apply patch for VFZ2 (with scraper-creds)
+kubectl patch deployment n8n -n preme-n8n --patch-file /Users/pulakmandal/context/ba/n8n/n8n-env-patch.yaml
+
+# Apply patch for VFZ1 (without scraper-creds)
+kubectl patch deployment n8n -n preme-n8n --patch-file /Users/pulakmandal/context/ba/n8n/n8n-env-patch-vfz1.yaml
+
+# Restore original envFrom if accidentally removed (run before applying VFZ1 patch)
+kubectl patch deployment n8n -n preme-n8n --type=json -p='[{"op":"add","path":"/spec/template/spec/containers/0/envFrom","value":[{"configMapRef":{"name":"n8n-app-config"}},{"secretRef":{"name":"n8n-app-secret"}}]}]'
+
 # Check which container is crashing and restart counts
 kubectl get pods -n preme-n8n
 
