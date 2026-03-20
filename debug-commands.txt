@@ -4,11 +4,6 @@
 # Apply patch for VFZ2 (with scraper-creds)
 kubectl patch deployment n8n -n preme-n8n --patch-file /Users/pulakmandal/context/ba/n8n/n8n-env-patch.yaml
 
-# Apply patch for VFZ1 (without scraper-creds)
-kubectl patch deployment n8n -n preme-n8n --patch-file /Users/pulakmandal/context/ba/n8n/n8n-env-patch-vfz1.yaml
-
-# Remove envFrom from task-runner (VFZ1 — scraper-creds does not exist there)
-kubectl patch deployment n8n -n preme-n8n --type=json -p='[{"op":"remove","path":"/spec/template/spec/containers/1/envFrom"}]'
 
 # Restore original envFrom if accidentally removed (run before applying VFZ1 patch)
 kubectl patch deployment n8n -n preme-n8n --type=json -p='[{"op":"add","path":"/spec/template/spec/containers/0/envFrom","value":[{"configMapRef":{"name":"n8n-app-config"}},{"secretRef":{"name":"n8n-app-secret"}}]}]'
