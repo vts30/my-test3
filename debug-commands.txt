@@ -108,6 +108,14 @@ kubectl set env deployment/n8n -n preme-n8n \
   -c n8n NODE_FUNCTION_ALLOW_EXTERNAL=puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core \
   -c task-runner NODE_FUNCTION_ALLOW_EXTERNAL=puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core
 
+# Allow ALL external modules (wildcard - use single quotes to prevent shell glob expansion)
+kubectl set env deployment/n8n -n preme-n8n \
+  -c n8n 'NODE_FUNCTION_ALLOW_EXTERNAL=*' \
+  -c task-runner 'NODE_FUNCTION_ALLOW_EXTERNAL=*'
+
+# Find exact variable name task-runner uses for module allowlist
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- grep -n "disallowed\|allowedModules\|ALLOW_EXTERNAL" /opt/node_modules/@n8n/task-runner/javascript/task_runner.js | head -20
+
 # ── IMAGE INSPECTION ──────────────────────────────────────────────────────────
 # Get current image repo and tag for all containers
 kubectl get deployment n8n -n preme-n8n -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"\t"}{.image}{"\n"}{end}'
