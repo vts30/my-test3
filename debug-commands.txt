@@ -50,6 +50,13 @@ kubectl get deployment n8n -n preme-n8n -o jsonpath='{.spec.template.spec.contai
 # Check task-runner container env vars
 kubectl get deployment n8n -n preme-n8n -o jsonpath='{.spec.template.spec.containers[1].env}' | tr ',' '\n'
 
+# ── MODULE TROUBLESHOOTING ────────────────────────────────────────────────────
+# Find where puppeteer-extra is installed in the n8n container
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- find / -name "puppeteer-extra" -type d 2>/dev/null | head -5
+
+# Find where puppeteer-extra is installed in the task-runner container
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- find / -name "puppeteer-extra" -type d 2>/dev/null | head -5
+
 # Quick log check (last 20 lines per container)
 kubectl logs deployment/n8n -n preme-n8n -c n8n --tail=20
 kubectl logs deployment/n8n -n preme-n8n -c task-runner --tail=20
