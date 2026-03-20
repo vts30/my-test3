@@ -102,3 +102,7 @@ kubectl logs deployment/n8n -n preme-n8n -c task-runner --tail=20
 kubectl set env deployment/n8n -n preme-n8n -c n8n --list | grep EXEC_ENV
 kubectl set env deployment/n8n -n preme-n8n -c n8n --list | grep N8N_PORT
 kubectl set env deployment/n8n -n preme-n8n -c n8n --list | grep RUNNERS_AUTH
+
+# ── IMAGE INSPECTION ──────────────────────────────────────────────────────────
+# Get current image repo and tag for all containers
+kubectl get deployment n8n -n preme-n8n -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"\t"}{.image}{"\n"}{end}'
