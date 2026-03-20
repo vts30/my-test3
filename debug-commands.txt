@@ -45,3 +45,8 @@ kubectl get deployment n8n -n preme-n8n -o jsonpath='{.spec.template.spec.contai
 # Quick log check (last 20 lines per container)
 kubectl logs deployment/n8n -n preme-n8n -c n8n --tail=20
 kubectl logs deployment/n8n -n preme-n8n -c task-runner --tail=20
+
+# Verify specific env vars are applied
+kubectl set env deployment/n8n -n preme-n8n -c n8n --list | grep EXEC_ENV
+kubectl set env deployment/n8n -n preme-n8n -c n8n --list | grep N8N_PORT
+kubectl set env deployment/n8n -n preme-n8n -c n8n --list | grep RUNNERS_AUTH
