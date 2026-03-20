@@ -116,6 +116,26 @@ kubectl set env deployment/n8n -n preme-n8n \
 # Find exact variable name task-runner uses for module allowlist
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- grep -n "disallowed\|allowedModules\|ALLOW_EXTERNAL" /opt/node_modules/@n8n/task-runner/javascript/task_runner.js | head -20
 
+# task-runner js files are actually at /opt/runners/task-runner-javascript/dist/
+# List config files
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- ls /opt/runners/task-runner-javascript/dist/config/
+
+# Read js-runner config (shows which env vars task-runner reads)
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- cat /opt/runners/task-runner-javascript/dist/config/js-runner-config.js
+
+# Find files that contain the "disallowed" module check logic
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- grep -rl "disallowed" /opt/runners/task-runner-javascript/dist/ 2>/dev/null
+
+# Bypass task-runner module check entirely
+kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_INSECURE_MODE=true
+
+# Check configmap for conflicting NODE_FUNCTION values
+kubectl get configmap n8n-app-config -n preme-n8n -o yaml | grep -i NODE_FUNCTION
+
+# Verify env vars in running pod (not just deployment spec)
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- env | grep NODE_FUNCTION
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep NODE_FUNCTION
+
 # ── IMAGE INSPECTION ──────────────────────────────────────────────────────────
 # Get current image repo and tag for all containers
 kubectl get deployment n8n -n preme-n8n -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"\t"}{.image}{"\n"}{end}'
