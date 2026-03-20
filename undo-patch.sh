@@ -8,6 +8,7 @@ kubectl set env deployment/$DEPLOYMENT -n $NAMESPACE -c n8n \
   N8N_LISTEN_ADDRESS- \
   N8N_HOST- \
   N8N_PORT- \
+  N8N_DIAGNOSTICS_ENABLED- \
   NODE_FUNCTION_ALLOW_EXTERNAL- 2>/dev/null || true
 
 echo "=== Step 2: Remove envFrom from n8n container (index 0) ==="

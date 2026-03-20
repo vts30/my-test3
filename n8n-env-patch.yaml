@@ -13,8 +13,8 @@ spec:
           value: "0.0.0.0"
         - name: N8N_PORT
           value: "5678"
-        - name: NODE_FUNCTION_ALLOW_EXTERNAL
-          value: "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core,crawlee"
+        - name: N8N_DIAGNOSTICS_ENABLED
+          value: "false"
         envFrom:
         - secretRef:
             name: scraper-creds
