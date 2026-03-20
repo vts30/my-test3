@@ -1,0 +1,28 @@
+## Debug Commands for n8n CrashLoopBackOff
+
+# Check which container is crashing and restart counts
+kubectl get pods -n preme-n8n
+
+# Check liveness/readiness probe config and last state
+kubectl describe pod -n preme-n8n -l app=n8n | grep -A10 "Liveness\|Readiness\|Last State\|Reason"
+
+# Full pod description
+kubectl describe pod -n preme-n8n -l app=n8n
+
+# n8n container logs
+kubectl logs deployment/n8n -n preme-n8n -c n8n --tail=50
+
+# n8n container previous logs (if crashed)
+kubectl logs deployment/n8n -n preme-n8n -c n8n --previous --tail=50
+
+# task-runner container logs
+kubectl logs deployment/n8n -n preme-n8n -c task-runner --tail=50
+
+# task-runner previous logs
+kubectl logs deployment/n8n -n preme-n8n -c task-runner --previous --tail=50
+
+# Check all current env vars on deployment
+kubectl set env deployment/n8n -n preme-n8n --list
+
+# Get full deployment spec (useful to compare with working region)
+kubectl get deployment n8n -n preme-n8n -o yaml
