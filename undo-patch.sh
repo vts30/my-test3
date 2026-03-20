@@ -6,7 +6,7 @@ DEPLOYMENT=n8n
 
 echo "Removing added env vars from n8n container..."
 kubectl set env deployment/$DEPLOYMENT -n $NAMESPACE -c n8n \
-  N8N_HOST- \
+  N8N_LISTEN_ADDRESS- \
   N8N_PORT- \
   NODE_FUNCTION_ALLOW_EXTERNAL-
 
