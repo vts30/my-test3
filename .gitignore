@@ -3,3 +3,6 @@ scraper-creds-secret.yaml
 
 # Mac
 .DS_Store
+
+# Pictures
+picture/
