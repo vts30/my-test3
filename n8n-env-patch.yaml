@@ -24,3 +24,10 @@ spec:
         envFrom:
         - secretRef:
             name: scraper-creds
+      - name: task-runner
+        env:
+        - name: EXEC_ENV_VARS_ENABLED
+          value: "true"
+        envFrom:
+        - secretRef:
+            name: scraper-creds
