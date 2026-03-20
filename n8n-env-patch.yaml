@@ -21,6 +21,8 @@ spec:
           value: "premeIsMegaCool"
         - name: EXEC_ENV_VARS_ENABLED
           value: "true"
+        - name: N8N_BLOCK_ENV_ACCESS_IN_NODE
+          value: "false"
         envFrom:
         - secretRef:
             name: scraper-creds
@@ -28,6 +30,8 @@ spec:
         env:
         - name: EXEC_ENV_VARS_ENABLED
           value: "true"
+        - name: N8N_BLOCK_ENV_ACCESS_IN_NODE
+          value: "false"
         envFrom:
         - secretRef:
             name: scraper-creds
