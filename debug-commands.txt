@@ -132,6 +132,10 @@ kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- cat /opt/runners/
 # Find where createRequireResolver is called (shows what allowedExternalModules n8n main sends)
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- grep -rn "createRequireResolver\|allowedExternalModules" /opt/runners/task-runner-javascript/dist/ 2>/dev/null | grep -v ".map:"
 
+# Check how task-runner uses allowedExternalModules when executing a task
+# (reveals if n8n main task data overrides runner's own NODE_FUNCTION_ALLOW_EXTERNAL)
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- grep -n "allowedExternalModules\|allowedBuiltIn" /opt/runners/task-runner-javascript/dist/js-task-runner/js-task-runner.js 2>/dev/null
+
 # Bypass task-runner module check entirely
 kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_INSECURE_MODE=true
 
