@@ -1,5 +1,23 @@
 ## Debug Commands for n8n CrashLoopBackOff
 
+# ── EXTERNAL → INTERNAL TASK-RUNNER MIGRATION ─────────────────────────────────
+# Original setup: Code nodes run in separate task-runner sidecar container (external mode)
+# Problem: sidecar uses different image without puppeteer installed
+#
+# Changes made to switch to internal task-runner (runs inside n8n container):
+#   1. N8N_RUNNERS_ENABLED=false   → added to n8n container env
+#   2. N8N_RUNNERS_MODE=internal   → added to n8n container env (overrides configmap value of 'external')
+#
+# With internal mode:
+#   - Code nodes run as child process inside n8n container
+#   - Binary used: /opt/runners/task-runner-javascript/
+#   - Sidecar task-runner container still runs but is unused
+#   - Puppeteer needed only in n8n image (not task-runner image)
+#
+# To revert to external task-runner:
+#   kubectl set env deployment/n8n -n preme-n8n -c n8n N8N_RUNNERS_ENABLED- N8N_RUNNERS_MODE-
+#   (then build custom task-runner image with puppeteer installed)
+
 # ── APPLY PATCHES ─────────────────────────────────────────────────────────────
 # Apply patch for VFZ2 (with scraper-creds)
 kubectl patch deployment n8n -n preme-n8n --patch-file /Users/pulakmandal/context/ba/n8n/n8n-env-patch.yaml
