@@ -166,12 +166,14 @@ kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep NODE_F
 kubectl get deployment n8n -n preme-n8n -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"\t"}{.image}{"\n"}{end}'
 
 # ── DOCKERFILE FIX FOR PUPPETEER IN TASK-RUNNER ───────────────────────────────
-# Problem: internal task-runner looks in /home/node/node_modules, not NODE_PATH
-# Fix: add symlinks in Dockerfile BEFORE the WORKDIR /home/node line (~line 97)
+# Problem: task-runner runs from /opt/runners/task-runner-javascript/ and looks
+#          for modules there — NODE_PATH and /home/node/node_modules are NOT used
+# Fix: add symlinks into task-runner's own node_modules in Dockerfile
+#      Place BEFORE the WORKDIR /home/node line (~line 97)
 #
-# RUN mkdir -p /home/node/node_modules && \
-#     ln -s /install/node_modules/puppeteer-extra /home/node/node_modules/puppeteer-extra && \
-#     ln -s /install/node_modules/puppeteer-extra-plugin-stealth /home/node/node_modules/puppeteer-extra-plugin-stealth && \
-#     ln -s /install/node_modules/puppeteer-core /home/node/node_modules/puppeteer-core
+# RUN mkdir -p /opt/runners/task-runner-javascript/node_modules && \
+#     ln -s /install/node_modules/puppeteer-extra /opt/runners/task-runner-javascript/node_modules/puppeteer-extra && \
+#     ln -s /install/node_modules/puppeteer-extra-plugin-stealth /opt/runners/task-runner-javascript/node_modules/puppeteer-extra-plugin-stealth && \
+#     ln -s /install/node_modules/puppeteer-core /opt/runners/task-runner-javascript/node_modules/puppeteer-core
 #
-# WORKDIR /home/node   ← already there, add RUN block just above it
+# NOTE: /home/node/node_modules symlinks do NOT work — task-runner never looks there
