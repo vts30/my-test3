@@ -221,6 +221,19 @@ try { r('puppeteer-extra'); console.log('OK'); }
 catch(e) { console.log('FAILED:', e.message); }
 "
 
+# Test if child subprocess inherits NODE_PATH and can find puppeteer
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- node -e "
+const {spawnSync} = require('child_process');
+const result = spawnSync('node', ['-e', \"require('puppeteer-extra'); console.log('child OK')\"], {
+  env: process.env,
+  encoding: 'utf8'
+});
+console.log(result.stdout || result.stderr);
+"
+
+# Check n8n logs after running a Code node (look for module errors)
+kubectl logs deployment/n8n -n preme-n8n -c n8n --tail=30
+
 # ── TEMPORARY SYMLINK FIX (lost on pod restart — use to verify before Dockerfile change) ──
 kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- sh -c "
 ln -sf /install/node_modules/puppeteer-extra /usr/local/lib/node_modules/puppeteer-extra && \
