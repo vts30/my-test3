@@ -209,6 +209,18 @@ kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep NODE_F
 # Get current image repo and tag for all containers
 kubectl get deployment n8n -n preme-n8n -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"\t"}{.image}{"\n"}{end}'
 
+# Show which paths node searches for a module from n8n process context
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- node -e "console.log(require.resolve.paths('puppeteer-extra').join('\n'))"
+
+# Simulate exact require context used by require-resolver.js in task-runner
+# If this fails, symlinks in /opt/runners/task-runner-javascript/node_modules/ are not working
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- node -e "
+const Module = require('module');
+const r = Module.createRequire('/opt/runners/task-runner-javascript/dist/js-task-runner/require-resolver.js');
+try { r('puppeteer-extra'); console.log('OK'); }
+catch(e) { console.log('FAILED:', e.message); }
+"
+
 # ── TEMPORARY SYMLINK FIX (lost on pod restart — use to verify before Dockerfile change) ──
 kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- sh -c "
 ln -sf /install/node_modules/puppeteer-extra /usr/local/lib/node_modules/puppeteer-extra && \
