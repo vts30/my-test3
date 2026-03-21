@@ -25,6 +25,8 @@ spec:
           value: "false"
         - name: NODE_FUNCTION_ALLOW_EXTERNAL
           value: "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core"
+        - name: N8N_RUNNERS_ENABLED
+          value: "false"
         envFrom:
         - configMapRef:
             name: n8n-app-config
