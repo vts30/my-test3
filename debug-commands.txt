@@ -145,6 +145,12 @@ kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep -E "NO
 # Read full parseModuleAllowList and allowed modules setup (lines 65-90)
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- sed -n '65,90p' /opt/runners/task-runner-javascript/dist/js-task-runner/js-task-runner.js
 
+# Check if task-runner container uses a different image (puppeteer may not be installed there)
+kubectl get deployment n8n -n preme-n8n -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"\t"}{.image}{"\n"}{end}'
+
+# Test if puppeteer-extra is actually available inside the task-runner container
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "require('puppeteer-extra'); console.log('OK')"
+
 # Bypass task-runner module check entirely
 kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_INSECURE_MODE=true
 
