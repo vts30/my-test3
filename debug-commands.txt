@@ -142,6 +142,9 @@ kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- grep -rn "parseMo
 # Verify exact env var values in running task-runner pod
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep -E "NODE_FUNCTION|INSECURE"
 
+# Read full parseModuleAllowList and allowed modules setup (lines 65-90)
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- sed -n '65,90p' /opt/runners/task-runner-javascript/dist/js-task-runner/js-task-runner.js
+
 # Bypass task-runner module check entirely
 kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_INSECURE_MODE=true
 
