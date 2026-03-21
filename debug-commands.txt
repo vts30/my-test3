@@ -209,6 +209,14 @@ kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep NODE_F
 # Get current image repo and tag for all containers
 kubectl get deployment n8n -n preme-n8n -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"\t"}{.image}{"\n"}{end}'
 
+# ── TEMPORARY SYMLINK FIX (lost on pod restart — use to verify before Dockerfile change) ──
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- sh -c "
+ln -sf /install/node_modules/puppeteer-extra /usr/local/lib/node_modules/puppeteer-extra && \
+ln -sf /install/node_modules/puppeteer-extra-plugin-stealth /usr/local/lib/node_modules/puppeteer-extra-plugin-stealth && \
+ln -sf /install/node_modules/puppeteer-core /usr/local/lib/node_modules/puppeteer-core && \
+echo 'Symlinks created'
+"
+
 # ── DOCKERFILE FIX FOR PUPPETEER IN TASK-RUNNER ───────────────────────────────
 # Problem: task-runner runs from /opt/runners/task-runner-javascript/ and looks
 #          for modules there — NODE_PATH and /home/node/node_modules are NOT used
