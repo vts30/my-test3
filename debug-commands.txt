@@ -14,9 +14,27 @@
 #   - Sidecar task-runner container still runs but is unused
 #   - Puppeteer needed only in n8n image (not task-runner image)
 #
-# To revert to external task-runner:
-#   kubectl set env deployment/n8n -n preme-n8n -c n8n N8N_RUNNERS_ENABLED- N8N_RUNNERS_MODE-
-#   (then build custom task-runner image with puppeteer installed)
+# ── REVERT: INTERNAL → EXTERNAL TASK-RUNNER ───────────────────────────────────
+# Requirements before reverting:
+#   - Build custom task-runner image with puppeteer installed (see Dockerfile notes)
+#   - Push custom task-runner image to Harbor
+#
+# Step 1: Update task-runner container to use custom image with puppeteer
+kubectl set image deployment/n8n -n preme-n8n task-runner=<harbor-host>/preme/preme-n8n-base-runner:1.0.0
+#
+# Step 2: Remove internal mode overrides from n8n container
+kubectl set env deployment/n8n -n preme-n8n -c n8n N8N_RUNNERS_ENABLED- N8N_RUNNERS_MODE-
+#
+# Step 3: Verify n8n container no longer has those overrides
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- env | grep RUNNERS
+#
+# Step 4: Watch pods restart
+kubectl get pods -n preme-n8n -w
+#
+# Step 5: Test puppeteer in task-runner container
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "require('puppeteer-extra'); console.log('OK')"
+#
+# Also update n8n-env-patch.yaml: remove N8N_RUNNERS_ENABLED and N8N_RUNNERS_MODE entries
 
 # ── APPLY PATCHES ─────────────────────────────────────────────────────────────
 # Apply patch for VFZ2 (with scraper-creds)
