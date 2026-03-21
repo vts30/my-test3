@@ -6,3 +6,6 @@ scraper-creds-secret.yaml
 
 # Pictures
 picture/
+
+# Context / notes
+context.txt
