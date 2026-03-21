@@ -243,14 +243,26 @@ echo 'Symlinks created'
 "
 
 # ── DOCKERFILE FIX FOR PUPPETEER IN TASK-RUNNER ───────────────────────────────
-# Problem: task-runner runs from /opt/runners/task-runner-javascript/ and looks
-#          for modules there — NODE_PATH and /home/node/node_modules are NOT used
-# Fix: add symlinks into task-runner's own node_modules in Dockerfile
-#      Place BEFORE the WORKDIR /home/node line (~line 97)
+# Root cause: in N8N_RUNNERS_MODE=internal, n8n uses its OWN bundled task-runner
+#   at /usr/local/lib/node_modules/n8n/node_modules/.pnpm/@n8n+task-runner.../
+#   NOT the sidecar binary at /opt/runners/task-runner-javascript/
 #
-# RUN mkdir -p /opt/runners/task-runner-javascript/node_modules && \
-#     ln -s /install/node_modules/puppeteer-extra /opt/runners/task-runner-javascript/node_modules/puppeteer-extra && \
-#     ln -s /install/node_modules/puppeteer-extra-plugin-stealth /opt/runners/task-runner-javascript/node_modules/puppeteer-extra-plugin-stealth && \
-#     ln -s /install/node_modules/puppeteer-core /opt/runners/task-runner-javascript/node_modules/puppeteer-core
+# Fixes that do NOT work:
+#   - /opt/runners/task-runner-javascript/node_modules/ symlinks (wrong task-runner)
+#   - /home/node/node_modules/ symlinks (not in pnpm resolution path)
+#   - /usr/local/lib/node_modules/ symlinks (read-only filesystem)
+#   - NODE_PATH (not inherited by internal task-runner subprocess)
 #
-# NOTE: /home/node/node_modules symlinks do NOT work — task-runner never looks there
+# CORRECT FIX: dynamically find n8n's bundled task-runner and add symlinks there
+# Add this RUN block in Dockerfile BEFORE the WORKDIR /home/node line (~line 97):
+#
+# RUN node -e "\
+# const path = require.resolve('@n8n/task-runner/dist/js-task-runner/js-task-runner.js');\
+# const pkgDir = path.split('/dist/')[0];\
+# const nodeModulesDir = pkgDir + '/node_modules';\
+# require('fs').mkdirSync(nodeModulesDir, {recursive: true});\
+# ['puppeteer-extra','puppeteer-extra-plugin-stealth','puppeteer-core'].forEach(pkg => {\
+#   require('fs').symlinkSync('/install/node_modules/' + pkg, nodeModulesDir + '/' + pkg);\
+# });\
+# console.log('Symlinks created at', nodeModulesDir);\
+# "
