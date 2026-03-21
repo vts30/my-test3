@@ -74,6 +74,14 @@ docker inspect my-n8n:latest --format '{{.Config.WorkingDir}}'
 # Test puppeteer in local image
 docker run --rm my-n8n:latest /usr/local/bin/node -e "require('puppeteer-extra'); console.log('OK')"
 
+# Test all 3 puppeteer modules load correctly from task-runner context
+docker run --rm --entrypoint /usr/local/bin/node my-n8n:latest -e "
+const fs = require('fs');
+['puppeteer-extra','puppeteer-extra-plugin-stealth','puppeteer-core'].forEach(p => {
+  try { require(p); console.log(p + ' OK'); }
+  catch(e) { console.log(p + ' FAILED: ' + e.message); }
+});"
+
 # Override entrypoint to test node directly
 docker run --rm --entrypoint /usr/local/bin/node my-n8n:latest -e "require('puppeteer-extra'); console.log('OK')"
 
