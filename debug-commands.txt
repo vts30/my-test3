@@ -126,6 +126,12 @@ kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- cat /opt/runners/
 # Find files that contain the "disallowed" module check logic
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- grep -rl "disallowed" /opt/runners/task-runner-javascript/dist/ 2>/dev/null
 
+# Read module resolver (key file for allowed module check logic)
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- cat /opt/runners/task-runner-javascript/dist/js-task-runner/require-resolver.js
+
+# Find where createRequireResolver is called (shows what allowedExternalModules n8n main sends)
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- grep -rn "createRequireResolver\|allowedExternalModules" /opt/runners/task-runner-javascript/dist/ 2>/dev/null | grep -v ".map:"
+
 # Bypass task-runner module check entirely
 kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_INSECURE_MODE=true
 
