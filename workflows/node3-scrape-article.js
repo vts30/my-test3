@@ -12,6 +12,7 @@ const { url, cookies, source, isPaid } = $json;
 const now     = new Date();
 const todayDE = `${String(now.getDate()).padStart(2,'0')}.${String(now.getMonth()+1).padStart(2,'0')}.${now.getFullYear()}`;
 
+const proxyServer = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || '';
 const browser = await puppeteer.launch({
   executablePath: '/usr/lib/chromium/chromium',
   args: [
@@ -19,6 +20,7 @@ const browser = await puppeteer.launch({
     '--disable-setuid-sandbox',
     '--disable-dev-shm-usage',
     '--disable-blink-features=AutomationControlled',
+    ...(proxyServer ? [`--proxy-server=${proxyServer}`] : []),
   ],
   headless: true,
   defaultViewport: { width: 1280, height: 800 },

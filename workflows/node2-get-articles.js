@@ -11,6 +11,7 @@ const { id, listUrl, loginUrl, email, password, requiresLogin, source } = $json;
 // Today's date YYYY-MM-DD
 const today = new Date().toISOString().split('T')[0];
 
+const proxyServer = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || '';
 const browser = await puppeteer.launch({
   executablePath: '/usr/lib/chromium/chromium',
   args: [
@@ -18,6 +19,7 @@ const browser = await puppeteer.launch({
     '--disable-setuid-sandbox',
     '--disable-dev-shm-usage',
     '--disable-blink-features=AutomationControlled',
+    ...(proxyServer ? [`--proxy-server=${proxyServer}`] : []),
   ],
   headless: true,
   defaultViewport: { width: 1280, height: 800 },
