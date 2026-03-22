@@ -258,19 +258,19 @@ echo 'Symlinks created'
 #       and traverse up to find package root instead
 # Add this RUN block in Dockerfile BEFORE the WORKDIR /home/node line (~line 97):
 #
-# RUN node -e "\
-# const Module = require('module');\
-# const r = Module.createRequire('/usr/local/lib/node_modules/n8n/package.json');\
-# const fs = require('fs');\
-# const path = require('path');\
-# const mainPath = r.resolve('@n8n/task-runner');\
-# let pkgDir = path.dirname(mainPath);\
-# while (!fs.existsSync(path.join(pkgDir, 'package.json'))) { pkgDir = path.dirname(pkgDir); }\
-# const nodeModulesDir = path.join(pkgDir, 'node_modules');\
-# fs.mkdirSync(nodeModulesDir, {recursive: true});\
-# ['puppeteer-extra','puppeteer-extra-plugin-stealth','puppeteer-core'].forEach(pkg => {\
-#   const link = path.join(nodeModulesDir, pkg);\
-#   if (!fs.existsSync(link)) fs.symlinkSync('/install/node_modules/' + pkg, link);\
-# });\
-# console.log('Symlinks created at', nodeModulesDir);\
-# "
+RUN node -e "\
+const Module = require('module');\
+const r = Module.createRequire('/usr/local/lib/node_modules/n8n/package.json');\
+const fs = require('fs');\
+const path = require('path');\
+const mainPath = r.resolve('@n8n/task-runner');\
+let pkgDir = path.dirname(mainPath);\
+while (!fs.existsSync(path.join(pkgDir, 'package.json'))) { pkgDir = path.dirname(pkgDir); }\
+const nodeModulesDir = path.join(pkgDir, 'node_modules');\
+fs.mkdirSync(nodeModulesDir, {recursive: true});\
+['puppeteer-extra','puppeteer-extra-plugin-stealth','puppeteer-core'].forEach(pkg => {\
+  const link = path.join(nodeModulesDir, pkg);\
+  if (!fs.existsSync(link)) fs.symlinkSync('/install/node_modules/' + pkg, link);\
+});\
+console.log('Symlinks created at', nodeModulesDir);\
+"
