@@ -11,6 +11,15 @@ const { id, listUrl, loginUrl, email, password, requiresLogin, source } = $json;
 // Today's date YYYY-MM-DD
 const today = new Date().toISOString().split('T')[0];
 
+// ── DEBUG: uncomment to check proxy env vars (remove before production) ──────
+// return [{ json: {
+//   HTTPS_PROXY: process.env.HTTPS_PROXY,
+//   HTTP_PROXY:  process.env.HTTP_PROXY,
+//   NO_PROXY:    process.env.NO_PROXY,
+//   proxyServer: process.env.HTTPS_PROXY || process.env.HTTP_PROXY || 'EMPTY',
+// }}];
+// ─────────────────────────────────────────────────────────────────────────────
+
 const proxyServer = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || '';
 const browser = await puppeteer.launch({
   executablePath: '/usr/lib/chromium/chromium',
