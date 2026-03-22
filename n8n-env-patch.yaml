@@ -27,6 +27,8 @@ spec:
           value: "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core"
         - name: N8N_RUNNERS_ENABLED
           value: "false"
+        - name: N8N_RUNNERS_INSECURE_MODE
+          value: "true"
         envFrom:
         - configMapRef:
             name: n8n-app-config
