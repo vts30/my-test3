@@ -254,19 +254,23 @@ echo 'Symlinks created'
 #   - NODE_PATH (not inherited by internal task-runner subprocess)
 #
 # CORRECT FIX: dynamically find n8n's bundled task-runner and add symlinks there
-# NOTE: must use Module.createRequire from n8n's location — plain require.resolve fails
-#       because Dockerfile WORKDIR is /install where @n8n/task-runner is not visible
+# NOTE: @n8n/task-runner uses 'exports' to restrict subpaths — resolve main entry
+#       and traverse up to find package root instead
 # Add this RUN block in Dockerfile BEFORE the WORKDIR /home/node line (~line 97):
 #
 # RUN node -e "\
 # const Module = require('module');\
 # const r = Module.createRequire('/usr/local/lib/node_modules/n8n/package.json');\
-# const path = r.resolve('@n8n/task-runner/dist/js-task-runner/js-task-runner.js');\
-# const pkgDir = path.split('/dist/')[0];\
-# const nodeModulesDir = pkgDir + '/node_modules';\
-# require('fs').mkdirSync(nodeModulesDir, {recursive: true});\
+# const fs = require('fs');\
+# const path = require('path');\
+# const mainPath = r.resolve('@n8n/task-runner');\
+# let pkgDir = path.dirname(mainPath);\
+# while (!fs.existsSync(path.join(pkgDir, 'package.json'))) { pkgDir = path.dirname(pkgDir); }\
+# const nodeModulesDir = path.join(pkgDir, 'node_modules');\
+# fs.mkdirSync(nodeModulesDir, {recursive: true});\
 # ['puppeteer-extra','puppeteer-extra-plugin-stealth','puppeteer-core'].forEach(pkg => {\
-#   require('fs').symlinkSync('/install/node_modules/' + pkg, nodeModulesDir + '/' + pkg);\
+#   const link = path.join(nodeModulesDir, pkg);\
+#   if (!fs.existsSync(link)) fs.symlinkSync('/install/node_modules/' + pkg, link);\
 # });\
 # console.log('Symlinks created at', nodeModulesDir);\
 # "
