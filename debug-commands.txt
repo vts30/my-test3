@@ -349,3 +349,12 @@ k exec -n preme-n8n deploy/n8n -c n8n -- node -e "const https = require('https')
 k exec -n preme-n8n deploy/n8n -c n8n -- node -e "process.env.NODE_TLS_REJECT_UNAUTHORIZED='0'; const https = require('https'); https.get('https://background.tagesspiegel.de', r => console.log('status:', r.statusCode)).on('error', e => console.log('error:', e.message));"
 # Result A: status 200/301/etc → SSL cert issue → need to add corporate CA cert to image
 # Result B: still ECONNRESET   → firewall/network policy blocking pod entirely
+#
+# Result was B: ECONNRESET even with TLS verification disabled
+# → not an SSL cert issue; TCP connection itself is being reset
+# → no Kubernetes NetworkPolicy found in preme-n8n namespace
+# → pod likely needs to route through corporate proxy explicitly
+#   (node/wget do not use HTTPS_PROXY automatically for HTTPS)
+
+# Test with wget using proxy explicitly (env vars expanded inside container):
+k exec -n preme-n8n deploy/n8n -c n8n -- sh -c 'wget -e use_proxy=yes -e https_proxy="$HTTPS_PROXY" -O- --timeout=10 https://background.tagesspiegel.de 2>&1 | head -20'
