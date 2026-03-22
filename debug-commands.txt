@@ -147,6 +147,12 @@ kubectl set env deployment/n8n -n preme-n8n -c n8n --list | grep EXEC_ENV
 kubectl set env deployment/n8n -n preme-n8n -c n8n --list | grep N8N_PORT
 kubectl set env deployment/n8n -n preme-n8n -c n8n --list | grep RUNNERS_AUTH
 
+# Check env var names in deployment spec for n8n container (catches typos)
+kubectl get deployment n8n -n preme-n8n -o jsonpath='{.spec.template.spec.containers[0].env[*].name}' | tr ' ' '\n' | grep -i insecure
+
+# Check all env in running pod (not deployment spec)
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- env | grep -i insecure
+
 # Allow external npm modules in Code nodes (required for puppeteer)
 kubectl set env deployment/n8n -n preme-n8n \
   -c n8n NODE_FUNCTION_ALLOW_EXTERNAL=puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core \
