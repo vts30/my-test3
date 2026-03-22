@@ -336,3 +336,16 @@ k exec -n preme-n8n deploy/n8n -c n8n -- wget -O- --timeout=10 https://backgroun
 
 # Test connectivity with node (if wget not available):
 k exec -n preme-n8n deploy/n8n -c n8n -- node -e "const https = require('https'); https.get('https://background.tagesspiegel.de', r => console.log('status:', r.statusCode)).on('error', e => console.log('error:', e.message));"
+
+# ── SSL / CORPORATE CA CERT INVESTIGATION ─────────────────────────────────────
+# Findings:
+#   - wget: connects to 240.240.0.143:443 (DNS works, TCP works)
+#            → "Connection reset by peer" during SSL handshake
+#   - node https.get → ECONNRESET (same issue, not Chromium-specific)
+#   - Root cause: corporate proxy does transparent SSL inspection;
+#                 container does not have the corporate CA cert installed
+#
+# Test: bypass SSL verification in node — if this succeeds, it confirms cert issue
+k exec -n preme-n8n deploy/n8n -c n8n -- node -e "process.env.NODE_TLS_REJECT_UNAUTHORIZED='0'; const https = require('https'); https.get('https://background.tagesspiegel.de', r => console.log('status:', r.statusCode)).on('error', e => console.log('error:', e.message));"
+# Result A: status 200/301/etc → SSL cert issue → need to add corporate CA cert to image
+# Result B: still ECONNRESET   → firewall/network policy blocking pod entirely
