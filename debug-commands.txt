@@ -305,3 +305,24 @@ k patch deployment n8n -n preme-n8n --patch-file n8n-env-patch.yaml
 
 # Verify after restart:
 k exec -n preme-n8n deploy/n8n -c n8n -- env | grep PUPPETEER
+
+# ── ERR_CONNECTION_RESET INVESTIGATION ────────────────────────────────────────
+# After chromium path fixed, browser launches but gets ERR_CONNECTION_RESET.
+# Tried: --proxy-server, --ignore-certificate-errors → same error.
+#
+# Findings:
+#   - process.env.HTTPS_PROXY and HTTP_PROXY are EMPTY inside Code nodes
+#     (internal task-runner subprocess does not inherit container env vars)
+#   - Hardcoded proxy + --ignore-certificate-errors → still ERR_CONNECTION_RESET
+#   - No proxy at all + --ignore-certificate-errors → still ERR_CONNECTION_RESET
+#
+# Next: check if container has basic internet connectivity at all
+
+# Check DNS + TCP connectivity to tagesspiegel from n8n container:
+k exec -n preme-n8n deploy/n8n -c n8n -- curl -v --max-time 10 https://background.tagesspiegel.de 2>&1 | head -30
+
+# Check with proxy explicitly:
+k exec -n preme-n8n deploy/n8n -c n8n -- curl -v --max-time 10 --proxy "$HTTPS_PROXY" https://background.tagesspiegel.de 2>&1 | head -30
+
+# Check if proxy env var is set in container:
+k exec -n preme-n8n deploy/n8n -c n8n -- env | grep -i proxy
