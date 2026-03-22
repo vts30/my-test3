@@ -364,3 +364,18 @@ k exec -n preme-n8n deploy/n8n -c n8n -- sh -c 'wget -e use_proxy=yes -e https_p
 k exec -n preme-n8n deploy/n8n -c n8n -- sh -c 'node -e "const http=require(\"http\"); const u=new URL(process.env.HTTPS_PROXY||process.env.HTTP_PROXY||\"http://noproxy\"); console.log(\"proxy:\",u.host); const r=http.request({host:u.hostname,port:u.port,method:\"CONNECT\",path:\"background.tagesspiegel.de:443\"}); r.on(\"connect\",(res)=>console.log(\"CONNECT:\",res.statusCode)); r.on(\"error\",e=>console.log(\"error:\",e.message)); r.end();"'
 # Result 200 → proxy CONNECT works → need to use proxy in puppeteer/node https calls
 # Result error → proxy itself is unreachable from pod
+
+# ── CORPORATE WEB PROXY INVESTIGATION ─────────────────────────────────────────
+# Company web proxy found via Windows PowerShell:
+#   [System.Net.WebProxy]::GetDefaultProxy().Address
+#   → Squid proxy on port 3128 (different from the npm proxy)
+#
+# CONNECT test result: "socket hang up" → pod reaches proxy but proxy closes connection
+#   (likely requires authentication or pod IP not in proxy ACL)
+#
+# Test HTTP GET through proxy (replace PROXY_HOST and PROXY_PORT with actual values):
+k exec -n preme-n8n deploy/n8n -c n8n -- sh -c 'node -e "const http=require(\"http\"); http.get({host:\"PROXY_HOST\",port:PROXY_PORT,path:\"http://example.com/\"}, r => { let d=\"\"; r.on(\"data\",c=>d+=c); r.on(\"end\",()=>console.log(\"status:\",r.statusCode,d.slice(0,200))); }).on(\"error\",e=>console.log(\"error:\",e.message));"'
+# Expected responses:
+#   status 200/301 → proxy works, use it in puppeteer --proxy-server
+#   status 407     → proxy requires authentication
+#   error          → proxy unreachable from pod
