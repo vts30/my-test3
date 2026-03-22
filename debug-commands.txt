@@ -357,4 +357,10 @@ k exec -n preme-n8n deploy/n8n -c n8n -- node -e "process.env.NODE_TLS_REJECT_UN
 #   (node/wget do not use HTTPS_PROXY automatically for HTTPS)
 
 # Test with wget using proxy explicitly (env vars expanded inside container):
+# NOTE: BusyBox wget (used in Alpine) does not support -e flag → use node instead
 k exec -n preme-n8n deploy/n8n -c n8n -- sh -c 'wget -e use_proxy=yes -e https_proxy="$HTTPS_PROXY" -O- --timeout=10 https://background.tagesspiegel.de 2>&1 | head -20'
+
+# Test proxy CONNECT tunnel via node (works with BusyBox environments):
+k exec -n preme-n8n deploy/n8n -c n8n -- sh -c 'node -e "const http=require(\"http\"); const u=new URL(process.env.HTTPS_PROXY||process.env.HTTP_PROXY||\"http://noproxy\"); console.log(\"proxy:\",u.host); const r=http.request({host:u.hostname,port:u.port,method:\"CONNECT\",path:\"background.tagesspiegel.de:443\"}); r.on(\"connect\",(res)=>console.log(\"CONNECT:\",res.statusCode)); r.on(\"error\",e=>console.log(\"error:\",e.message)); r.end();"'
+# Result 200 → proxy CONNECT works → need to use proxy in puppeteer/node https calls
+# Result error → proxy itself is unreachable from pod
