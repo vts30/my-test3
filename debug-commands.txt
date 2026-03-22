@@ -411,3 +411,29 @@ https.get({
 "
 # status 200/301 → correct certs, add to Dockerfile
 # error          → wrong certs or additional certs needed
+
+# ── TEST: EXPLICIT PROXY + CA CERTS COMBINED ──────────────────────────────────
+# Direct connection still fails even with CA certs → transparent proxy resets
+# pod IP range at network level (not just SSL issue).
+# Try routing through explicit proxy AND using CA certs for SSL inspection:
+# (replace PROXY_HOST with real proxy hostname, dummy1/dummy2 with real cert names)
+k exec -n preme-n8n POD_NAME -c n8n -- node -e "
+const http = require('http');
+const tls = require('tls');
+const fs = require('fs');
+const ca = [
+  fs.readFileSync('/tmp/dummy1.crt'),
+  fs.readFileSync('/tmp/dummy2.crt')
+];
+const req = http.request({host:'PROXY_HOST',port:3128,method:'CONNECT',path:'background.tagesspiegel.de:443'});
+req.on('connect',(res,socket)=>{
+  console.log('CONNECT status:',res.statusCode);
+  const s=tls.connect({socket,servername:'background.tagesspiegel.de',ca,rejectUnauthorized:true},()=>{
+    console.log('TLS OK');
+    s.write('GET / HTTP/1.1\r\nHost: background.tagesspiegel.de\r\nConnection: close\r\n\r\n');
+  });
+  s.on('data',d=>console.log(d.toString().slice(0,100)));
+  s.on('error',e=>console.log('tls error:',e.message));
+});
+req.on('error',e=>console.log('error:',e.message));
+req.end();"
