@@ -12,7 +12,7 @@ const { id, listUrl, loginUrl, email, password, requiresLogin, source } = $json;
 const today = new Date().toISOString().split('T')[0];
 
 const browser = await puppeteer.launch({
-  executablePath: '/usr/bin/chromium-browser',
+  executablePath: '/usr/lib/chromium/chromium',
   args: [
     '--no-sandbox',
     '--disable-setuid-sandbox',
