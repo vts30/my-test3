@@ -280,3 +280,28 @@ fs.mkdirSync(nodeModulesDir, {recursive: true});\
 });\
 console.log('Symlinks created at', nodeModulesDir);\
 "
+
+# ── CHROMIUM EXECUTABLE PATH FIX ──────────────────────────────────────────────
+# Problem: PUPPETEER_EXECUTABLE_PATH was set to /usr/bin/chromium-browser
+#   /usr/bin/chromium-browser is a shell SCRIPT (not a binary) that calls /usr/bin/chromium
+#   /usr/bin/chromium does NOT exist → error: "exec: line 36: /usr/bin/chromium: not found"
+#
+# Investigation commands:
+k exec -n preme-n8n deploy/n8n -c n8n -- ls -la /usr/bin/chromium* 2>/dev/null
+k exec -n preme-n8n deploy/n8n -c n8n -- file /usr/bin/chromium-browser
+k exec -n preme-n8n deploy/n8n -c n8n -- find /usr/lib -name "chromium*" -type f
+# Result: actual binary at /usr/lib/chromium/chromium
+
+# Fix 1 — update env var immediately (does not survive pod replacement):
+k set env deployment/n8n -n preme-n8n -c n8n PUPPETEER_EXECUTABLE_PATH=/usr/lib/chromium/chromium
+k rollout restart deployment/n8n -n preme-n8n
+
+# Fix 2 — persist via patch yaml (n8n-env-patch.yaml already updated):
+k patch deployment n8n -n preme-n8n --patch-file n8n-env-patch.yaml
+
+# Also update Dockerfile ENV line (so rebuilt images have correct value):
+# Change: ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+# To:     ENV PUPPETEER_EXECUTABLE_PATH=/usr/lib/chromium/chromium
+
+# Verify after restart:
+k exec -n preme-n8n deploy/n8n -c n8n -- env | grep PUPPETEER

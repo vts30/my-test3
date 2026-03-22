@@ -29,6 +29,10 @@ spec:
           value: "false"
         - name: N8N_RUNNERS_INSECURE_MODE
           value: "true"
+        - name: N8N_RUNNERS_MODE
+          value: "internal"
+        - name: PUPPETEER_EXECUTABLE_PATH
+          value: "/usr/lib/chromium/chromium"
         envFrom:
         - configMapRef:
             name: n8n-app-config
