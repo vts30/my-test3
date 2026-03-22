@@ -326,3 +326,13 @@ k exec -n preme-n8n deploy/n8n -c n8n -- curl -v --max-time 10 --proxy "$HTTPS_P
 
 # Check if proxy env var is set in container:
 k exec -n preme-n8n deploy/n8n -c n8n -- env | grep -i proxy
+
+# Check available tools (curl not available in n8n image):
+k exec -n preme-n8n deploy/n8n -c n8n -- which wget
+k exec -n preme-n8n deploy/n8n -c n8n -- which curl
+
+# Test connectivity with wget:
+k exec -n preme-n8n deploy/n8n -c n8n -- wget -O- --timeout=10 https://background.tagesspiegel.de 2>&1 | head -20
+
+# Test connectivity with node (if wget not available):
+k exec -n preme-n8n deploy/n8n -c n8n -- node -e "const https = require('https'); https.get('https://background.tagesspiegel.de', r => console.log('status:', r.statusCode)).on('error', e => console.log('error:', e.message));"
