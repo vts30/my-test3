@@ -379,3 +379,35 @@ k exec -n preme-n8n deploy/n8n -c n8n -- sh -c 'node -e "const http=require(\"ht
 #   status 200/301 → proxy works, use it in puppeteer --proxy-server
 #   status 407     → proxy requires authentication
 #   error          → proxy unreachable from pod
+
+# ── CORPORATE CA CERT TEST ─────────────────────────────────────────────────────
+# Root cause: corporate transparent proxy does SSL inspection (DNS resolves
+#   external sites to internal proxy IP). Pod gets ECONNRESET because it doesn't
+#   have the corporate CA cert. Windows works because it has the cert in its store.
+#
+# Export both company root CA certs from Windows certmgr.msc:
+#   Vertrauenswürdige Stammzertifizierungsstellen → Zertifikate
+#   → find company certs → right-click → Alle Aufgaben → Exportieren
+#   → Base64-codiertes X.509 (.CER) format
+#   Save as dummy1.cer and dummy2.cer
+#
+# Copy certs into running pod and test (replace POD_NAME):
+k get pods -n preme-n8n
+kubectl cp /path/to/dummy1.cer POD_NAME:/tmp/dummy1.crt -n preme-n8n -c n8n
+kubectl cp /path/to/dummy2.cer POD_NAME:/tmp/dummy2.crt -n preme-n8n -c n8n
+
+# Test HTTPS connectivity using both certs:
+k exec -n preme-n8n POD_NAME -c n8n -- node -e "
+const https = require('https');
+const fs = require('fs');
+const ca = [
+  fs.readFileSync('/tmp/dummy1.crt'),
+  fs.readFileSync('/tmp/dummy2.crt')
+];
+https.get({
+  hostname: 'background.tagesspiegel.de',
+  ca: ca
+}, r => console.log('status:', r.statusCode)).on('error', e => console.log('error:', e.message));
+"
+# status 200/301 → correct certs, add to Dockerfile
+# error          → wrong certs or additional certs needed
