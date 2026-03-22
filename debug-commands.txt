@@ -254,10 +254,14 @@ echo 'Symlinks created'
 #   - NODE_PATH (not inherited by internal task-runner subprocess)
 #
 # CORRECT FIX: dynamically find n8n's bundled task-runner and add symlinks there
+# NOTE: must use Module.createRequire from n8n's location — plain require.resolve fails
+#       because Dockerfile WORKDIR is /install where @n8n/task-runner is not visible
 # Add this RUN block in Dockerfile BEFORE the WORKDIR /home/node line (~line 97):
 #
 # RUN node -e "\
-# const path = require.resolve('@n8n/task-runner/dist/js-task-runner/js-task-runner.js');\
+# const Module = require('module');\
+# const r = Module.createRequire('/usr/local/lib/node_modules/n8n/package.json');\
+# const path = r.resolve('@n8n/task-runner/dist/js-task-runner/js-task-runner.js');\
 # const pkgDir = path.split('/dist/')[0];\
 # const nodeModulesDir = pkgDir + '/node_modules';\
 # require('fs').mkdirSync(nodeModulesDir, {recursive: true});\
