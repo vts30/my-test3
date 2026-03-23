@@ -6,13 +6,13 @@ const puppeteer = require('puppeteer-extra');
 const Stealth   = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(Stealth());
 
-const { url, cookies, source, isPaid } = $json;
+const { url, cookies, source, isPaid, proxy } = $json;
 
 // Today in German format for wiwo date check e.g. "19.03.2026"
 const now     = new Date();
 const todayDE = `${String(now.getDate()).padStart(2,'0')}.${String(now.getMonth()+1).padStart(2,'0')}.${now.getFullYear()}`;
 
-const proxyServer = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || '';
+const proxyServer = proxy || '';
 const browser = await puppeteer.launch({
   executablePath: '/usr/lib/chromium/chromium',
   args: [
