@@ -466,6 +466,18 @@ k exec -n preme-n8n deploy/n8n -c n8n -- node -e "const https=require('https'); 
 #   Change: const proxyServer = 'http://PROXY_HOST:3128';
 #   To:     const proxyServer = '';
 
+# ── CREDENTIALS / ENV VAR INVESTIGATION ───────────────────────────────────────
+# Problem: $env.TS_EMAIL / $env.TS_PASSWORD return undefined in Code nodes
+#   → $env only exposes n8n config vars, NOT secret-mounted env vars
+#   → Use process.env.TS_EMAIL instead (node1-source-config.js updated)
+#   → BUT: process.env.TS_EMAIL also empty in Code node
+#
+# Check if secret vars are in the pod environment at all:
+k exec -n preme-n8n deploy/n8n -c n8n -- env | grep TS_
+
+# Check actual key names in scraper-creds secret:
+k get secret scraper-creds -n preme-n8n -o jsonpath='{.data}' | python3 -c "import sys,json; d=json.load(sys.stdin); [print(k) for k in d.keys()]"
+
 # After VirtualService deletion result:
 #   ECONNRESET is gone → pod now reaches transparent proxy at 240.240.0.143
 #   New error: "Client network socket disconnected before secure TLS connection was established"
