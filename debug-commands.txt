@@ -492,3 +492,48 @@ https.get({
   ca:[fs.readFileSync('/tmp/dummy1.crt'),fs.readFileSync('/tmp/dummy2.crt')],
   rejectUnauthorized:true
 }, r=>console.log('status:',r.statusCode)).on('error',e=>console.log('error:',e.message));"
+
+# ── CREDENTIALS FIX: ADD TO N8N_ENVIRONMENT CONFIGMAP ─────────────────────────
+# Root cause: process.env is EMPTY in Code nodes (internal task-runner subprocess
+#   does not inherit container env vars). scraper-creds secret envFrom also does
+#   not help. The only reliable way to pass custom vars to Code nodes is via
+#   N8N_ENVIRONMENT configmap → accessible as $env.KEY in Code nodes.
+#
+# n8n UI Credentials (Settings > Credentials) do NOT work in Code nodes —
+#   they are only accessible inside built-in node types via this.getCredentials().
+#
+# Fix: add TS_EMAIL, TS_PASSWORD, SCRAPER_PROXY to N8N_ENVIRONMENT JSON in configmap.
+# After this: use $env.TS_EMAIL / $env.TS_PASSWORD / $env.SCRAPER_PROXY in node1.
+
+# Step 1 — check current N8N_ENVIRONMENT value:
+k get configmap n8n-app-config -n preme-n8n -o jsonpath='{.data.N8N_ENVIRONMENT}'
+
+# Step 2 — export current value and merge in new keys:
+k get configmap n8n-app-config -n preme-n8n -o jsonpath='{.data.N8N_ENVIRONMENT}' > /tmp/n8n_env.json
+python3 << 'EOF'
+import json
+with open('/tmp/n8n_env.json') as f:
+    d = json.load(f)
+d['TS_EMAIL'] = 'mpulak030@gmail.com'
+d['TS_PASSWORD'] = 'ABS&6Ua$2.huVJ=x1SR5'
+d['SCRAPER_PROXY'] = 'http://PROXY_HOST:PORT'
+with open('/tmp/n8n_env_new.json', 'w') as f:
+    json.dump(d, f)
+print(json.dumps(d, indent=2))
+EOF
+
+# Step 3 — patch configmap:
+NEW_VAL=$(python3 -c "import json; print(json.dumps(open('/tmp/n8n_env_new.json').read().strip()))")
+k patch configmap n8n-app-config -n preme-n8n --type merge -p "{\"data\":{\"N8N_ENVIRONMENT\":$NEW_VAL}}"
+
+# Step 4 — restart n8n to pick up new configmap:
+k rollout restart deployment/n8n -n preme-n8n
+k rollout status deployment/n8n -n preme-n8n
+
+# Step 5 — verify $env vars are visible in Code node (paste in n8n Code node to test):
+#   return [{ json: { email: $env.TS_EMAIL, proxy: $env.SCRAPER_PROXY } }];
+
+# After patching — node1-source-config.js must use $env instead of process.env:
+#   const PROXY       = $env.SCRAPER_PROXY || '';
+#   const TS_EMAIL    = $env.TS_EMAIL    || '';
+#   const TS_PASSWORD = $env.TS_PASSWORD || '';
