@@ -437,3 +437,31 @@ req.on('connect',(res,socket)=>{
 });
 req.on('error',e=>console.log('error:',e.message));
 req.end();"
+
+# ── ISTIO EGRESS GATEWAY INVESTIGATION ────────────────────────────────────────
+# Found: VirtualService tagesspiegel-vs routes ALL traffic for background.tagesspiegel.de
+#        to istio-egressgateway.istio-system.svc.cluster.local:443
+#        BUT: egress gateway pod/service/deployment does NOT exist in istio-system
+#        → Istio drops all connections → ECONNRESET
+#        → This was the cause of ECONNRESET all along (not transparent proxy/CA cert)
+#
+# Istio resources in preme-n8n:
+#   ServiceEntry:    allow-tagesspiegel (host: background.tagesspiegel.de, port 443, TLS)
+#   DestinationRule: tagesspiegel-dr (tls.mode: SIMPLE)
+#   VirtualService:  tagesspiegel-vs (routes to istio-egressgateway → BROKEN)
+#
+# Check Istio egress gateway:
+k get pods -n istio-system | grep egress       # → no pods
+k get deployment -n istio-system | grep egress # → no deployment
+k get svc -n istio-system | grep egress        # → no service
+k get gateway -A | grep -i egress
+
+# Fix: delete broken VirtualService so traffic routes directly via ServiceEntry:
+k delete virtualservice tagesspiegel-vs -n preme-n8n
+
+# After deleting VirtualService — test direct connectivity (no proxy):
+k exec -n preme-n8n deploy/n8n -c n8n -- node -e "const https=require('https'); process.env.NODE_TLS_REJECT_UNAUTHORIZED='0'; https.get('https://background.tagesspiegel.de', r=>console.log('status:',r.statusCode)).on('error',e=>console.log('error:',e.message));"
+
+# If ERR_SOCKET_NOT_CONNECTED in Code node → remove hardcoded proxy from node2/node3:
+#   Change: const proxyServer = 'http://PROXY_HOST:3128';
+#   To:     const proxyServer = '';
