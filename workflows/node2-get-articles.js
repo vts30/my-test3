@@ -34,18 +34,26 @@ const browser = await puppeteer.launch({
   defaultViewport: { width: 1280, height: 800 },
 });
 
-// Helper: accept consent banner
+// Helper: accept consent banner (Usercentrics uses shadow DOM)
 const acceptConsent = async (page) => {
-  try {
-    await page.waitForSelector(
-      '#onetrust-accept-btn-handler, button[title*="Akzeptieren"], .sp-choice-type-11',
-      { timeout: 4000 }
-    );
-    await page.click(
-      '#onetrust-accept-btn-handler, button[title*="Akzeptieren"], .sp-choice-type-11'
-    );
-    await page.waitForTimeout(1000);
-  } catch (_) {}
+  await new Promise(r => setTimeout(r, 3000));
+  await page.evaluate(() => {
+    function findInShadow(root, selector) {
+      const el = root.querySelector(selector);
+      if (el) return el;
+      for (const elem of root.querySelectorAll('*')) {
+        if (elem.shadowRoot) {
+          const found = findInShadow(elem.shadowRoot, selector);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+    const btn = findInShadow(document, '#accept') ||
+                findInShadow(document, 'button[data-action-type="accept"]');
+    if (btn) btn.click();
+  });
+  await new Promise(r => setTimeout(r, 1000));
 };
 
 try {
