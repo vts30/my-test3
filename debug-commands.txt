@@ -513,9 +513,10 @@ k get configmap n8n-app-config -n preme-n8n -o jsonpath='{.data.N8N_ENVIRONMENT}
 python3 << 'EOF'
 import json
 with open('/tmp/n8n_env.json') as f:
-    d = json.load(f)
-d['TS_EMAIL'] = 'mpulak030@gmail.com'
-d['TS_PASSWORD'] = 'ABS&6Ua$2.huVJ=x1SR5'
+    content = f.read().strip()
+d = json.loads(content)
+d['TS_EMAIL'] = 'your-tagesspiegel@email.de'
+d['TS_PASSWORD'] = 'your-tagesspiegel-password'
 d['SCRAPER_PROXY'] = 'http://PROXY_HOST:PORT'
 with open('/tmp/n8n_env_new.json', 'w') as f:
     json.dump(d, f)
