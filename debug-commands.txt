@@ -509,23 +509,39 @@ https.get({
 k get configmap n8n-app-config -n preme-n8n -o jsonpath='{.data.N8N_ENVIRONMENT}'
 
 # Step 2 — export current value and merge in new keys:
+# NOTE: N8N_ENVIRONMENT is stored as KEY=VALUE space-separated string, NOT JSON
 k get configmap n8n-app-config -n preme-n8n -o jsonpath='{.data.N8N_ENVIRONMENT}' > /tmp/n8n_env.json
 python3 << 'EOF'
-import json
 with open('/tmp/n8n_env.json') as f:
     content = f.read().strip()
-d = json.loads(content)
-d['TS_EMAIL'] = 'your-tagesspiegel@email.de'
-d['TS_PASSWORD'] = 'your-tagesspiegel-password'
-d['SCRAPER_PROXY'] = 'http://PROXY_HOST:PORT'
-with open('/tmp/n8n_env_new.json', 'w') as f:
-    json.dump(d, f)
-print(json.dumps(d, indent=2))
+
+# Parse KEY=VALUE space-separated format
+pairs = {}
+for part in content.split():
+    if '=' in part:
+        k, v = part.split('=', 1)
+        pairs[k] = v
+
+# Add new entries
+pairs['TS_EMAIL'] = 'your-tagesspiegel@email.de'
+pairs['TS_PASSWORD'] = 'your-tagesspiegel-password'
+pairs['SCRAPER_PROXY'] = 'http://PROXY_HOST:PORT'
+
+# Serialize back to KEY=VALUE format
+new_content = ' '.join(f'{k}={v}' for k, v in pairs.items())
+print(new_content)
+
+with open('/tmp/n8n_env_new.txt', 'w') as f:
+    f.write(new_content)
 EOF
 
-# Step 3 — patch configmap:
-NEW_VAL=$(python3 -c "import json; print(json.dumps(open('/tmp/n8n_env_new.json').read().strip()))")
-k patch configmap n8n-app-config -n preme-n8n --type merge -p "{\"data\":{\"N8N_ENVIRONMENT\":$NEW_VAL}}"
+# Step 3 — patch configmap (use temp file to avoid shell escaping issues):
+python3 -c "
+import json
+new_val = open('/tmp/n8n_env_new.txt').read().strip()
+print(json.dumps({'data': {'N8N_ENVIRONMENT': new_val}}))
+" > /tmp/patch.json
+k patch configmap n8n-app-config -n preme-n8n --type merge -p "\$(cat /tmp/patch.json)"
 
 # Step 4 — restart n8n to pick up new configmap:
 k rollout restart deployment/n8n -n preme-n8n
