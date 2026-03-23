@@ -32,7 +32,7 @@ try {
   // Restore authenticated session cookies (tagesspiegel)
   if (cookies?.length) await page.setCookie(...cookies);
 
-  await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
   let article = {};
 
