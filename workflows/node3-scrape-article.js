@@ -8,6 +8,9 @@ puppeteer.use(Stealth());
 
 const { url, cookies, source, isPaid, proxy } = $json;
 
+const TS_EMAIL    = process.env.TS_EMAIL    || '';
+const TS_PASSWORD = process.env.TS_PASSWORD || '';
+
 // Today in German format for wiwo date check e.g. "19.03.2026"
 const now     = new Date();
 const todayDE = `${String(now.getDate()).padStart(2,'0')}.${String(now.getMonth()+1).padStart(2,'0')}.${now.getFullYear()}`;
@@ -32,26 +35,34 @@ try {
   await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
 
-  // Restore authenticated session cookies
-  if (cookies?.length) await page.setCookie(...cookies);
-
-  // For tagesspiegel: click the article link from the list page instead of direct goto
-  if (source === 'tagesspiegel') {
-    await page.goto('https://background.tagesspiegel.de/digitalisierung-und-ki', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await new Promise(r => setTimeout(r, 1500));
-    const clicked = await page.evaluate((targetUrl) => {
-      const link = [...document.querySelectorAll('a.stretched-link')].find(a => a.href === targetUrl);
-      if (link) { link.click(); return true; }
-      return false;
-    }, url);
-    if (clicked) {
-      await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
-    } else {
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    }
-  } else {
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  // For tagesspiegel: re-login in this browser to establish a real session
+  // (new browser instance has no history — tagesspiegel blocks it without a real session)
+  if (source === 'tagesspiegel' && TS_EMAIL && TS_PASSWORD) {
+    await page.goto('https://background.tagesspiegel.de/login', { waitUntil: 'networkidle2', timeout: 60000 });
+    await new Promise(r => setTimeout(r, 3000));
+    // Accept consent banner
+    await page.evaluate(() => {
+      function findInShadow(root, sel) {
+        const el = root.querySelector(sel); if (el) return el;
+        for (const e of root.querySelectorAll('*')) {
+          if (e.shadowRoot) { const f = findInShadow(e.shadowRoot, sel); if (f) return f; }
+        }
+      }
+      const btn = findInShadow(document, '#accept') || findInShadow(document, 'button[data-action-type="accept"]');
+      if (btn) btn.click();
+    });
+    await new Promise(r => setTimeout(r, 1000));
+    await page.type('input[type=email]',    TS_EMAIL,    { delay: 60 });
+    await page.type('input[type=password]', TS_PASSWORD, { delay: 60 });
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }),
+      page.click('button[type=submit]'),
+    ]);
+  } else if (cookies?.length) {
+    await page.setCookie(...cookies);
   }
+
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
   let article = {};
 
