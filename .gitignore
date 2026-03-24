@@ -9,3 +9,6 @@ picture/
 
 # Context / notes
 context.txt
+
+# Local test scripts with credentials
+test-tagesspiegel-login.js
