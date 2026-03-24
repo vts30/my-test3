@@ -39,6 +39,20 @@ kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "
   try { require(p); console.log(p + ' OK'); }
   catch(e) { console.log(p + ' FAILED: ' + e.message); }
 });"
+
+# ── FIX: NODE_FUNCTION_ALLOW_EXTERNAL overridden by n8n-task-runners.json ─────
+# The file /etc/n8n-task-runners.json in the runner image has env-overrides that
+# set NODE_FUNCTION_ALLOW_EXTERNAL="" — this overrides all env vars and blocks modules.
+#
+# Temporary fix (lost on pod restart — patch runner image for permanent fix):
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- sed -i 's/"NODE_FUNCTION_ALLOW_EXTERNAL": ""/"NODE_FUNCTION_ALLOW_EXTERNAL": "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core"/' /etc/n8n-task-runners.json
+#
+# Verify:
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- cat /etc/n8n-task-runners.json | grep NODE_FUNCTION_ALLOW_EXTERNAL
+#
+# Permanent fix: add to runner Dockerfile after COPY n8n-task-runners.json:
+# RUN sed -i 's/"NODE_FUNCTION_ALLOW_EXTERNAL": ""/"NODE_FUNCTION_ALLOW_EXTERNAL": "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core"/' /etc/n8n-task-runners.json
+# Then rebuild and push as next version (e.g. 1.0.5)
 #
 # Step 6: Test chromium in task-runner container
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- /usr/bin/chromium-browser --version
