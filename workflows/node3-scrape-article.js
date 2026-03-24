@@ -31,18 +31,10 @@ try {
   const page = await browser.newPage();
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
 
-  // Restore authenticated session cookies (tagesspiegel)
-  // Warm up session: visit base domain first so cookies are accepted, then go to article
-  if (source === 'tagesspiegel' && cookies?.length) {
-    await page.goto('https://background.tagesspiegel.de', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.setCookie(...cookies);
-  } else if (cookies?.length) {
-    await page.setCookie(...cookies);
-  }
+  // Restore authenticated session cookies
+  if (cookies?.length) await page.setCookie(...cookies);
 
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() =>
-    page.goto(url, { waitUntil: 'load', timeout: 60000 })
-  );
+  await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
   let article = {};
 
