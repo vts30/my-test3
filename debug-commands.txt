@@ -38,7 +38,7 @@ kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- /usr/bin/chromium
 #
 # ── UPDATE TASK-RUNNER IMAGE VERSION ──────────────────────────────────────────
 # Update image in n8n-env-patch.yaml then re-apply, or use kubectl set image:
-kubectl set image deployment/n8n -n preme-n8n task-runner=<harbor-host>/preme/preme-n8n-base-runner:<version>
+kubectl set image deployment/n8n -n preme-n8n task-runner=registry.preme-mgmt.con.idst.ibaintern.de/sep61-aat/preme-n8n-runner:<version>
 
 # ── APPLY PATCHES ─────────────────────────────────────────────────────────────
 # Apply patch for VFZ2 (with scraper-creds)
