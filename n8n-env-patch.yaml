@@ -23,6 +23,8 @@ spec:
           value: "true"
         - name: N8N_BLOCK_ENV_ACCESS_IN_NODE
           value: "false"
+        - name: NODE_FUNCTION_ALLOW_EXTERNAL
+          value: "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core"
         - name: N8N_RUNNERS_ENABLED
           value: "true"
         - name: N8N_RUNNERS_INSECURE_MODE
@@ -56,6 +58,8 @@ spec:
           value: "http://localhost:5678"
         - name: PUPPETEER_EXECUTABLE_PATH
           value: "/usr/bin/chromium-browser"
+        - name: NODE_FUNCTION_ALLOW_EXTERNAL
+          value: "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core"
         envFrom:
         - secretRef:
             name: scraper-creds
