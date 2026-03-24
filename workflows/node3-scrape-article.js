@@ -35,13 +35,23 @@ try {
   // Restore authenticated session cookies
   if (cookies?.length) await page.setCookie(...cookies);
 
-  // For tagesspiegel: navigate via list page to simulate real user flow
+  // For tagesspiegel: click the article link from the list page instead of direct goto
   if (source === 'tagesspiegel') {
     await page.goto('https://background.tagesspiegel.de/digitalisierung-und-ki', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await new Promise(r => setTimeout(r, 1500));
+    const clicked = await page.evaluate((targetUrl) => {
+      const link = [...document.querySelectorAll('a.stretched-link')].find(a => a.href === targetUrl);
+      if (link) { link.click(); return true; }
+      return false;
+    }, url);
+    if (clicked) {
+      await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
+    } else {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    }
+  } else {
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
   }
-
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
   let article = {};
 
