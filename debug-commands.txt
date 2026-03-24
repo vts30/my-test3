@@ -535,15 +535,16 @@ with open('/tmp/n8n_env_new.txt', 'w') as f:
     f.write(new_content)
 EOF
 
-# Step 3 — patch configmap (use temp file to avoid shell escaping issues):
+# Step 3 — create patch JSON file (use temp file to avoid shell escaping issues):
 python3 -c "
 import json
 new_val = open('/tmp/n8n_env_new.txt').read().strip()
 print(json.dumps({'data': {'N8N_ENVIRONMENT': new_val}}))
 " > /tmp/patch.json
-k patch configmap n8n-app-config -n preme-n8n --type merge -p "\$(cat /tmp/patch.json)"
+cat /tmp/patch.json
 
-# Step 4 — restart n8n to pick up new configmap:
+# Step 4 — patch configmap and restart:
+k patch configmap n8n-app-config -n preme-n8n --type merge -p "$(cat /tmp/patch.json)"
 k rollout restart deployment/n8n -n preme-n8n
 k rollout status deployment/n8n -n preme-n8n
 
