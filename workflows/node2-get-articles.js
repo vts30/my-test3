@@ -1,6 +1,7 @@
 // NODE 2 — Get Articles
 // Paste this into a Code node in n8n
 // Receives one source config item, returns today's articles from that source
+// For tagesspiegel: also scrapes full article content in the same browser session
 
 const puppeteer = require('puppeteer-extra');
 const Stealth   = require('puppeteer-extra-plugin-stealth');
@@ -54,7 +55,6 @@ try {
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
 
   // Login if required
-  let cookies = [];
   if (requiresLogin) {
     await page.goto(loginUrl, { waitUntil: 'networkidle2' });
     await acceptConsent(page);
@@ -64,7 +64,6 @@ try {
       page.waitForNavigation({ waitUntil: 'networkidle2' }),
       page.click('button[type=submit]'),
     ]);
-    cookies = await page.cookies();
   }
 
   // Navigate to article list
@@ -80,13 +79,10 @@ try {
 
   // ── TAGESSPIEGEL ──────────────────────────────────────────────
   if (id === 'tagesspiegel') {
-    articles = await page.$$eval('div.ts-article-tile', tiles =>
+    const allArticles = await page.$$eval('div.ts-article-tile', tiles =>
       tiles.map(t => {
         const dateRaw = t.querySelector('p.ts-type-base.ts-type-xs')?.innerText?.trim();
-        // Convert "19.03.2026" → "2026-03-19"
-        const isoDate = dateRaw
-          ? dateRaw.split('.').reverse().join('-')
-          : null;
+        const isoDate = dateRaw ? dateRaw.split('.').reverse().join('-') : null;
         return {
           url:    t.querySelector('a.stretched-link')?.getAttribute('href'),
           title:  t.querySelector('h3.ts-type-h3-alt')?.innerText?.trim(),
@@ -105,6 +101,35 @@ try {
       }))
     );
 
+    const todayArticles = allArticles.filter(a => a.isoDate && a.isoDate.startsWith(today));
+
+    // Scrape each article in the same authenticated browser session
+    const scrapedArticles = [];
+    for (const a of todayArticles) {
+      const artPage = await browser.newPage();
+      await artPage.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
+      try {
+        await artPage.goto(a.url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        const content = await artPage.evaluate(() => {
+          const titleEl  = document.querySelector('h1.ts-type-h2-alt');
+          const topic    = titleEl?.querySelector('span.ts-type-text-md-base')?.innerText?.trim();
+          const title    = titleEl?.innerText?.replace(topic || '', '').trim();
+          const lead     = document.querySelector('section.ts-article-intro p.ts-type-alt-bold-lg')?.innerText?.trim();
+          const body     = document.querySelector('div.ts-page-main-content.ts-paywall-content')?.innerText?.trim();
+          const author   = document.querySelector('p.ts-type-author')?.innerText?.replace('von', '').trim();
+          const published = document.querySelector('time')?.getAttribute('datetime');
+          const tags     = [...document.querySelectorAll('div.ts-related-tags div.ts-tags a')]
+                             .map(el => el.innerText.trim());
+          return { topic, title, lead, body, author, published, tags, isPaywalled: false };
+        });
+        scrapedArticles.push({ json: { ...a, ...content, url: a.url, source, scraped: true } });
+      } finally {
+        await artPage.close();
+      }
+    }
+
+    return scrapedArticles;
+
   // ── WIWO ──────────────────────────────────────────────────────
   } else if (id === 'wiwo') {
     articles = await page.$$eval('app-default-teaser', teasers =>
@@ -115,7 +140,7 @@ try {
         teaser: t.querySelector('app-teaser-content-body p')?.innerText?.trim(),
         author: t.querySelector('span.author-names')?.innerText?.trim(),
         isPaid: !!t.querySelector('app-paid-marker'),
-        isoDate: null, // not available in list — filtered in scrape node
+        isoDate: null,
       }))
       .filter(a => a.url && a.title)
       .map(a => ({ ...a, url: `https://www.wiwo.de${a.url}` }))
@@ -158,7 +183,7 @@ try {
   });
 
   return todayArticles.map(a => ({
-    json: { ...a, cookies, source, email, password, loginUrl }
+    json: { ...a, source }
   }));
 
 } finally {

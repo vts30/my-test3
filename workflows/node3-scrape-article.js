@@ -6,7 +6,12 @@ const puppeteer = require('puppeteer-extra');
 const Stealth   = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(Stealth());
 
-const { url, cookies, source, isPaid, proxy, email, password, loginUrl } = $json;
+const { url, cookies, source, isPaid, proxy, scraped } = $json;
+
+// Tagesspiegel is fully scraped in node2 — pass through directly
+if (source === 'tagesspiegel' || scraped) {
+  return [{ json: $json }];
+}
 
 // Today in German format for wiwo date check e.g. "19.03.2026"
 const now     = new Date();
@@ -32,32 +37,7 @@ try {
   await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
 
-  // For tagesspiegel: re-login in this browser to establish a real session
-  // (new browser instance has no history — tagesspiegel blocks it without a real session)
-  if (source === 'tagesspiegel' && email && password) {
-    await page.goto(loginUrl || 'https://background.tagesspiegel.de/login', { waitUntil: 'networkidle2', timeout: 60000 });
-    await new Promise(r => setTimeout(r, 3000));
-    // Accept consent banner
-    await page.evaluate(() => {
-      function findInShadow(root, sel) {
-        const el = root.querySelector(sel); if (el) return el;
-        for (const e of root.querySelectorAll('*')) {
-          if (e.shadowRoot) { const f = findInShadow(e.shadowRoot, sel); if (f) return f; }
-        }
-      }
-      const btn = findInShadow(document, '#accept') || findInShadow(document, 'button[data-action-type="accept"]');
-      if (btn) btn.click();
-    });
-    await new Promise(r => setTimeout(r, 1000));
-    await page.type('input[type=email]',    email,    { delay: 60 });
-    await page.type('input[type=password]', password, { delay: 60 });
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }),
-      page.click('button[type=submit]'),
-    ]);
-  } else if (cookies?.length) {
-    await page.setCookie(...cookies);
-  }
+  if (cookies?.length) await page.setCookie(...cookies);
 
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
