@@ -50,9 +50,18 @@ kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- sed -i 's/"NODE_F
 # Verify:
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- cat /etc/n8n-task-runners.json | grep NODE_FUNCTION_ALLOW_EXTERNAL
 #
-# Permanent fix: add to runner Dockerfile after COPY n8n-task-runners.json:
+# Permanent fix: rebuild runner image 1.0.5
+# ── Step A: Add this line to runner Dockerfile, after COPY n8n-task-runners.json /etc/n8n-task-runners.json ──
+#
 # RUN sed -i 's/"NODE_FUNCTION_ALLOW_EXTERNAL": ""/"NODE_FUNCTION_ALLOW_EXTERNAL": "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core"/' /etc/n8n-task-runners.json
-# Then rebuild and push as next version (e.g. 1.0.5)
+#
+# ── Step B: Build and push new image ──
+# docker build -t registry.preme-mgmt.con.idst.ibaintern.de/sep61-aat/preme-n8n-runner:1.0.5 .
+# docker push registry.preme-mgmt.con.idst.ibaintern.de/sep61-aat/preme-n8n-runner:1.0.5
+#
+# ── Step C: Update n8n-env-patch.yaml image version to 1.0.5, then re-apply patch ──
+# k patch deployment n8n -n preme-n8n --patch-file n8n-env-patch.yaml
+# k rollout status deployment/n8n -n preme-n8n
 #
 # Step 6: Test chromium in task-runner container
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- /usr/bin/chromium-browser --version
