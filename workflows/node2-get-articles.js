@@ -19,6 +19,7 @@ const browser = await puppeteer.launch({
     '--disable-setuid-sandbox',
     '--disable-dev-shm-usage',
     '--disable-blink-features=AutomationControlled',
+    '--ignore-certificate-errors',
     ...(proxyServer ? [`--proxy-server=${proxyServer}`] : []),
   ],
   headless: true,
