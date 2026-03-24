@@ -19,12 +19,9 @@ const browser = await puppeteer.launch({
     '--disable-setuid-sandbox',
     '--disable-dev-shm-usage',
     '--disable-blink-features=AutomationControlled',
-    '--ignore-certificate-errors',
-    '--disable-http2',
     ...(proxyServer ? [`--proxy-server=${proxyServer}`] : []),
   ],
   headless: true,
-  ignoreHTTPSErrors: true,
   defaultViewport: { width: 1280, height: 800 },
 });
 
