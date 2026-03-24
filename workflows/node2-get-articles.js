@@ -158,7 +158,7 @@ try {
   });
 
   return todayArticles.map(a => ({
-    json: { ...a, cookies, source }
+    json: { ...a, cookies, source, email, password, loginUrl }
   }));
 
 } finally {

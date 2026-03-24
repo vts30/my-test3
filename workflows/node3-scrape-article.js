@@ -6,10 +6,7 @@ const puppeteer = require('puppeteer-extra');
 const Stealth   = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(Stealth());
 
-const { url, cookies, source, isPaid, proxy } = $json;
-
-const TS_EMAIL    = process.env.TS_EMAIL    || '';
-const TS_PASSWORD = process.env.TS_PASSWORD || '';
+const { url, cookies, source, isPaid, proxy, email, password, loginUrl } = $json;
 
 // Today in German format for wiwo date check e.g. "19.03.2026"
 const now     = new Date();
@@ -37,8 +34,8 @@ try {
 
   // For tagesspiegel: re-login in this browser to establish a real session
   // (new browser instance has no history — tagesspiegel blocks it without a real session)
-  if (source === 'tagesspiegel' && TS_EMAIL && TS_PASSWORD) {
-    await page.goto('https://background.tagesspiegel.de/login', { waitUntil: 'networkidle2', timeout: 60000 });
+  if (source === 'tagesspiegel' && email && password) {
+    await page.goto(loginUrl || 'https://background.tagesspiegel.de/login', { waitUntil: 'networkidle2', timeout: 60000 });
     await new Promise(r => setTimeout(r, 3000));
     // Accept consent banner
     await page.evaluate(() => {
@@ -52,8 +49,8 @@ try {
       if (btn) btn.click();
     });
     await new Promise(r => setTimeout(r, 1000));
-    await page.type('input[type=email]',    TS_EMAIL,    { delay: 60 });
-    await page.type('input[type=password]', TS_PASSWORD, { delay: 60 });
+    await page.type('input[type=email]',    email,    { delay: 60 });
+    await page.type('input[type=password]', password, { delay: 60 });
     await Promise.all([
       page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }),
       page.click('button[type=submit]'),
