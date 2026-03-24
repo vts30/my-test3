@@ -29,11 +29,13 @@ const browser = await puppeteer.launch({
 
 try {
   const page = await browser.newPage();
+  await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
 
   // Restore authenticated session cookies
   if (cookies?.length) await page.setCookie(...cookies);
 
+  await new Promise(r => setTimeout(r, 2000));
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
   let article = {};
