@@ -16,25 +16,29 @@
 #
 # ── REVERT: INTERNAL → EXTERNAL TASK-RUNNER ───────────────────────────────────
 # Requirements before reverting:
-#   - Build custom task-runner image with puppeteer installed (see Dockerfile notes)
+#   - Build custom task-runner image with puppeteer installed
 #   - Push custom task-runner image to Harbor
+#   - Update n8n-env-patch.yaml (already done — external mode + task-runner image configured)
 #
-# Step 1: Update task-runner container to use custom image with puppeteer
-kubectl set image deployment/n8n -n preme-n8n task-runner=<harbor-host>/preme/preme-n8n-base-runner:1.0.0
+# Step 1: Replace harbor-host placeholder in patch file with real Harbor URL
+# Step 2: Apply patch
+kubectl patch deployment n8n -n preme-n8n --patch-file /Users/pulakmandal/context/ba/n8n/n8n-env-patch.yaml
 #
-# Step 2: Remove internal mode overrides from n8n container
-kubectl set env deployment/n8n -n preme-n8n -c n8n N8N_RUNNERS_ENABLED- N8N_RUNNERS_MODE-
-#
-# Step 3: Verify n8n container no longer has those overrides
-kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- env | grep RUNNERS
-#
-# Step 4: Watch pods restart
+# Step 3: Watch pods restart
 kubectl get pods -n preme-n8n -w
 #
-# Step 5: Test puppeteer in task-runner container
+# Step 4: Verify runners mode on n8n container
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- env | grep RUNNERS
+#
+# Step 5: Test puppeteer works in task-runner container
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "require('puppeteer-extra'); console.log('OK')"
 #
-# Also update n8n-env-patch.yaml: remove N8N_RUNNERS_ENABLED and N8N_RUNNERS_MODE entries
+# Step 6: Test chromium in task-runner container
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- /usr/bin/chromium-browser --version
+#
+# ── UPDATE TASK-RUNNER IMAGE VERSION ──────────────────────────────────────────
+# Update image in n8n-env-patch.yaml then re-apply, or use kubectl set image:
+kubectl set image deployment/n8n -n preme-n8n task-runner=<harbor-host>/preme/preme-n8n-base-runner:<version>
 
 # ── APPLY PATCHES ─────────────────────────────────────────────────────────────
 # Apply patch for VFZ2 (with scraper-creds)

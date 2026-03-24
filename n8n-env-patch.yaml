@@ -26,13 +26,11 @@ spec:
         - name: NODE_FUNCTION_ALLOW_EXTERNAL
           value: "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core"
         - name: N8N_RUNNERS_ENABLED
-          value: "false"
+          value: "true"
         - name: N8N_RUNNERS_INSECURE_MODE
           value: "true"
         - name: N8N_RUNNERS_MODE
-          value: "internal"
-        - name: PUPPETEER_EXECUTABLE_PATH
-          value: "/usr/lib/chromium/chromium"
+          value: "external"
         envFrom:
         - configMapRef:
             name: n8n-app-config
@@ -41,6 +39,7 @@ spec:
         - secretRef:
             name: scraper-creds
       - name: task-runner
+        image: <harbor-host>/preme/preme-n8n-base-runner:1.0.0
         env:
         - name: EXEC_ENV_VARS_ENABLED
           value: "true"
@@ -48,6 +47,12 @@ spec:
           value: "false"
         - name: NODE_FUNCTION_ALLOW_EXTERNAL
           value: "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core"
+        - name: N8N_RUNNERS_AUTH_TOKEN
+          value: "premeIsMegaCool"
+        - name: N8N_RUNNERS_N8N_URI
+          value: "http://localhost:5678"
+        - name: PUPPETEER_EXECUTABLE_PATH
+          value: "/usr/bin/chromium-browser"
         envFrom:
         - secretRef:
             name: scraper-creds
