@@ -39,6 +39,14 @@ spec:
         - secretRef:
             name: scraper-creds
       - name: task-runner
+        image: <harbor-host>/preme/preme-n8n-base-runner:1.0.0
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
         env:
         - name: EXEC_ENV_VARS_ENABLED
           value: "true"
