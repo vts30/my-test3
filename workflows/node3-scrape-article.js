@@ -34,7 +34,7 @@ try {
   // Restore authenticated session cookies
   if (cookies?.length) await page.setCookie(...cookies);
 
-  await page.goto(url, { waitUntil: 'commit', timeout: 60000 });
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
   let article = {};
 
