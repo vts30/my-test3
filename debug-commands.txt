@@ -32,6 +32,13 @@ kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- env | grep RUNNERS
 #
 # Step 5: Test puppeteer works in task-runner container
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "require('puppeteer-extra'); console.log('OK')"
+
+# Step 5b: Test all 3 puppeteer modules load in task-runner
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "
+['puppeteer-extra','puppeteer-extra-plugin-stealth','puppeteer-core'].forEach(p => {
+  try { require(p); console.log(p + ' OK'); }
+  catch(e) { console.log(p + ' FAILED: ' + e.message); }
+});"
 #
 # Step 6: Test chromium in task-runner container
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- /usr/bin/chromium-browser --version
