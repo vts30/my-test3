@@ -35,7 +35,12 @@ try {
   // Restore authenticated session cookies
   if (cookies?.length) await page.setCookie(...cookies);
 
-  await new Promise(r => setTimeout(r, 2000));
+  // For tagesspiegel: navigate via list page to simulate real user flow
+  if (source === 'tagesspiegel') {
+    await page.goto('https://background.tagesspiegel.de/digitalisierung-und-ki', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await new Promise(r => setTimeout(r, 1500));
+  }
+
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
   let article = {};
