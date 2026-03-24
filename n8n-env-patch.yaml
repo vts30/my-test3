@@ -39,7 +39,6 @@ spec:
         - secretRef:
             name: scraper-creds
       - name: task-runner
-        image: <harbor-host>/preme/preme-n8n-base-runner:1.0.0
         env:
         - name: EXEC_ENV_VARS_ENABLED
           value: "true"
