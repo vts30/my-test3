@@ -22,6 +22,7 @@ const browser = await puppeteer.launch({
     ...(proxyServer ? [`--proxy-server=${proxyServer}`] : []),
   ],
   headless: true,
+  ignoreHTTPSErrors: true,
   defaultViewport: { width: 1280, height: 800 },
 });
 
