@@ -95,6 +95,12 @@ kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- cat /etc/n8n-task
 # Step 6: Test chromium in task-runner container
 # NOTE: /usr/bin/chromium-browser is a wrapper script — actual binary is /usr/lib/chromium/chromium
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- /usr/lib/chromium/chromium --version
+
+# ── DEBUG: Navigation timeout in task-runner ──────────────────────────────────
+# If puppeteer gets "Navigation timeout of 30000 ms exceeded", check network access:
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "require('https').get('https://www.google.com', r => console.log('status:', r.statusCode)).on('error', e => console.log('error:', e.message))"
+# status 200/301 → network OK, issue is proxy or site-specific blocking
+# error ECONNREFUSED/ETIMEDOUT → runner container has no internet access
 #
 # ── UPDATE TASK-RUNNER IMAGE VERSION ──────────────────────────────────────────
 # Update image in n8n-env-patch.yaml then re-apply, or use kubectl set image:
