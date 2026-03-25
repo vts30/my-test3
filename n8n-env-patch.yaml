@@ -62,6 +62,8 @@ spec:
           value: "/usr/bin/chromium-browser"
         - name: NODE_FUNCTION_ALLOW_EXTERNAL
           value: "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core"
+        - name: N8N_RUNNERS_TASK_TIMEOUT
+          value: "300"
         envFrom:
         - secretRef:
             name: scraper-creds
