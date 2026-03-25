@@ -77,8 +77,24 @@ kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- cat /etc/n8n-task
 # docker build -t registry.preme-mgmt.con.idst.ibaintern.de/sep61-aat/preme-n8n-runner:1.0.7 .
 # docker push registry.preme-mgmt.con.idst.ibaintern.de/sep61-aat/preme-n8n-runner:1.0.7
 #
+# ── FIX: puppeteer-core "Cannot assign to read only property 'name'" in external runner ──
+# Root cause: external task runner VM sandbox makes Error.name non-writable.
+# puppeteer-core's PuppeteerError constructor does: this.name = this.constructor.name (Errors.js:30)
+# which throws in the stricter sandbox context.
+#
+# Fix: add to Dockerfile after "COPY --from=builder /install/ /install/":
+#
+# RUN sed -i 's/this\.name = this\.constructor\.name;/try { this.name = this.constructor.name; } catch(_) {}/' \
+#     /install/node_modules/puppeteer-core/lib/cjs/puppeteer/common/Errors.js \
+#     /install/node_modules/puppeteer-core/lib/esm/puppeteer/common/Errors.js
+#
+# Then rebuild as 1.0.8 and push:
+# docker build -t registry.preme-mgmt.con.idst.ibaintern.de/sep61-aat/preme-n8n-runner:1.0.8 .
+# docker push registry.preme-mgmt.con.idst.ibaintern.de/sep61-aat/preme-n8n-runner:1.0.8
+#
 # Step 6: Test chromium in task-runner container
-kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- /usr/bin/chromium-browser --version
+# NOTE: /usr/bin/chromium-browser is a wrapper script — actual binary is /usr/lib/chromium/chromium
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- /usr/lib/chromium/chromium --version
 #
 # ── UPDATE TASK-RUNNER IMAGE VERSION ──────────────────────────────────────────
 # Update image in n8n-env-patch.yaml then re-apply, or use kubectl set image:
