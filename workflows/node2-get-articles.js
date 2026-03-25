@@ -54,6 +54,7 @@ const acceptConsent = async (page) => {
 try {
   console.log('step2: browser launched');
   const page = await browser.newPage();
+  page.setDefaultNavigationTimeout(0);
   console.log('step3: page created');
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
 
