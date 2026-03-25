@@ -32,7 +32,7 @@ spec:
         - name: N8N_RUNNERS_MODE
           value: "external"
         - name: N8N_RUNNERS_TASK_TIMEOUT
-          value: "300"
+          value: "600"
         envFrom:
         - configMapRef:
             name: n8n-app-config
@@ -63,7 +63,7 @@ spec:
         - name: NODE_FUNCTION_ALLOW_EXTERNAL
           value: "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core"
         - name: N8N_RUNNERS_TASK_TIMEOUT
-          value: "300"
+          value: "600"
         envFrom:
         - secretRef:
             name: scraper-creds
