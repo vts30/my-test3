@@ -115,6 +115,20 @@ p.use(require('/install/node_modules/puppeteer-extra-plugin-stealth')());
 })().catch(e => console.log('fatal:', e.message));
 "
 #
+# Test plain HTTP navigation with proxy + ignore-certificate-errors:
+# (use this to verify basic navigation works before testing HTTPS sites)
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "
+const p = require('/install/node_modules/puppeteer-extra');
+p.use(require('/install/node_modules/puppeteer-extra-plugin-stealth')());
+(async () => {
+  const b = await p.launch({ executablePath: '/usr/lib/chromium/chromium', args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--ignore-certificate-errors','--proxy-server=PROXY_HERE'], headless: true });
+  const page = await b.newPage();
+  await page.goto('http://example.com', { timeout: 15000 }).catch(e => console.log('nav error:', e.message));
+  console.log('url:', page.url());
+  await b.close();
+})().catch(e => console.log('fatal:', e.message));
+"
+#
 # ── UPDATE TASK-RUNNER IMAGE VERSION ──────────────────────────────────────────
 # Update image in n8n-env-patch.yaml then re-apply, or use kubectl set image:
 kubectl set image deployment/n8n -n preme-n8n task-runner=registry.preme-mgmt.con.idst.ibaintern.de/sep61-aat/preme-n8n-runner:<version>
