@@ -55,7 +55,7 @@ const acceptConsent = async (page) => {
                 findInShadow(document, 'button[data-action-type="accept"]');
     if (btn) btn.click();
   });
-  await new Promise(r => setTimeout(r, 1000));
+  await new Promise(r => setTimeout(r, 4000));
 };
 
 try {
@@ -94,10 +94,16 @@ try {
       console.log('step7-WARN: form not found, page HTML snippet:', html.slice(0, 800));
     }
 
-    await page.focus('input[type=email]');
-    await page.keyboard.type(email, { delay: 60 });
+    const bannerGone = await page.evaluate(() => {
+      const banner = document.querySelector('#usercentrics-root, [id*="consent"], [class*="consent-banner"]');
+      return !banner;
+    });
+    throw new Error('banner gone: ' + bannerGone + ' | email field exists: ' + !!(await page.$('input[type=email]')));
+
+    await page.click('input[type=email]');
+    await page.type('input[type=email]',    email,    { delay: 60 });
     const emailCheck = await page.$eval('input[type=email]', el => el.value);
-    throw new Error('keyboard.type result: ' + emailCheck);
+    throw new Error('immediately after typing: ' + emailCheck);
 
     await page.click('input[type=password]');
     await page.type('input[type=password]', password, { delay: 60 });
