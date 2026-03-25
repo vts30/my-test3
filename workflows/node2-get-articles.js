@@ -96,6 +96,9 @@ try {
 
     await page.click('input[type=email]');
     await page.type('input[type=email]',    email,    { delay: 60 });
+    const emailCheck = await page.$eval('input[type=email]', el => el.value);
+    throw new Error('immediately after typing: ' + emailCheck);
+
     await page.click('input[type=password]');
     await page.type('input[type=password]', password, { delay: 60 });
     console.log('step8: credentials typed, clicking submit');
