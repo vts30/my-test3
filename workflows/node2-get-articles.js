@@ -12,6 +12,7 @@ const { id, listUrl, loginUrl, email, password, requiresLogin, source, proxy } =
 // Today's date YYYY-MM-DD
 const today = new Date().toISOString().split('T')[0];
 
+console.log('step1: launching browser, proxy=', proxy || '(none)', 'source=', source);
 const proxyServer = proxy || '';
 const browser = await puppeteer.launch({
   executablePath: '/usr/lib/chromium/chromium',
@@ -51,12 +52,16 @@ const acceptConsent = async (page) => {
 };
 
 try {
+  console.log('step2: browser launched');
   const page = await browser.newPage();
+  console.log('step3: page created');
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
 
   // Login if required
   if (requiresLogin) {
-    await page.goto(loginUrl, { waitUntil: 'networkidle2' });
+    console.log('step4: navigating to login', loginUrl);
+    await page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    console.log('step5: login page loaded');
     await acceptConsent(page);
     await page.type('input[type=email]',    email,    { delay: 60 });
     await page.type('input[type=password]', password, { delay: 60 });
@@ -67,7 +72,9 @@ try {
   }
 
   // Navigate to article list
-  await page.goto(listUrl, { waitUntil: 'networkidle2' });
+  console.log('step6: navigating to list', listUrl);
+  await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  console.log('step7: list page loaded');
   await acceptConsent(page);
 
   // Wait for Angular render (wiwo only)
