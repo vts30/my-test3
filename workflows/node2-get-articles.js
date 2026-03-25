@@ -94,8 +94,20 @@ try {
       console.log('step7-WARN: form not found, page HTML snippet:', html.slice(0, 800));
     }
 
-    await page.type('input[type=email]',    email,    { delay: 60 });
-    await page.type('input[type=password]', password, { delay: 60 });
+    await page.evaluate((val) => {
+      const input = document.querySelector('input[type=email]');
+      const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      nativeSetter.call(input, val);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }, email);
+    await page.evaluate((val) => {
+      const input = document.querySelector('input[type=password]');
+      const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      nativeSetter.call(input, val);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }, password);
     console.log('step8: credentials typed, clicking submit');
 
     // ── DEBUG: check login form state after submit ────────────────
