@@ -61,7 +61,7 @@ try {
   // Login if required
   if (requiresLogin) {
     console.log('step4: navigating to login', loginUrl);
-    await page.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
     console.log('step5: login page loaded');
     await acceptConsent(page);
     await page.type('input[type=email]',    email,    { delay: 60 });
@@ -74,7 +74,7 @@ try {
 
   // Navigate to article list
   console.log('step6: navigating to list', listUrl);
-  await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.goto(listUrl, { waitUntil: 'domcontentloaded' });
   console.log('step7: list page loaded');
   await acceptConsent(page);
 
