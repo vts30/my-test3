@@ -7,7 +7,7 @@ const puppeteer = require('puppeteer-extra');
 const Stealth   = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(Stealth());
 
-const { id, listUrl, loginUrl, email, password, requiresLogin, source, proxy } = $json;
+const { id, listUrl, loginUrl, email, password, requiresLogin, source, proxy, useNativeSetter } = $json;
 
 // Today's date YYYY-MM-DD
 const today = new Date().toISOString().split('T')[0];
@@ -94,44 +94,34 @@ try {
       console.log('step7-WARN: form not found, page HTML snippet:', html.slice(0, 800));
     }
 
-    await page.evaluate((val) => {
-      const input = document.querySelector('input[type=email]');
-      const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-      nativeSetter.call(input, val);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    }, email);
-    await page.evaluate((val) => {
-      const input = document.querySelector('input[type=password]');
-      const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-      nativeSetter.call(input, val);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    }, password);
-    const emailCheck = await page.$eval('input[type=email]', el => el.value);
-    throw new Error('native setter result: ' + emailCheck);
+    if (useNativeSetter) {
+      // External runner: use native value setter (page.type keyboard events are untrusted)
+      await page.evaluate((val) => {
+        const input = document.querySelector('input[type=email]');
+        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        nativeSetter.call(input, val);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }, email);
+      await page.evaluate((val) => {
+        const input = document.querySelector('input[type=password]');
+        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        nativeSetter.call(input, val);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }, password);
+    } else {
+      // Internal runner: standard page.type works
+      await page.click('input[type=email]');
+      await page.type('input[type=email]',    email,    { delay: 60 });
+      await page.click('input[type=password]');
+      await page.type('input[type=password]', password, { delay: 60 });
+    }
 
-    await page.click('input[type=password]');
-    await page.type('input[type=password]', password, { delay: 60 });
-    console.log('step8: credentials typed, clicking submit');
-
-    // ── DEBUG: check login form state after submit ────────────────
-    page.click('button[type=submit]');
-    await new Promise(r => setTimeout(r, 10000));
-    const debug = await page.evaluate(() => {
-      const btn = document.querySelector('button[type=submit]');
-      const emailVal = document.querySelector('input[type=email]')?.value;
-      const errMsg = document.querySelector('[class*="error"], [class*="alert"], [class*="Error"]')?.innerText;
-      return {
-        btnExists: !!btn,
-        btnDisabled: btn?.disabled,
-        emailVal: emailVal,
-        errorOnPage: errMsg,
-        currentUrl: window.location.href,
-      };
-    });
-    throw new Error('DEBUG login state: ' + JSON.stringify(debug));
-    // ── END DEBUG ─────────────────────────────────────────────────
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+      page.click('button[type=submit]'),
+    ]);
   }
 
   // Navigate to article list
