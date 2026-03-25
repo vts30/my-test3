@@ -98,20 +98,23 @@ try {
     await page.type('input[type=password]', password, { delay: 60 });
     console.log('step8: credentials typed, clicking submit');
 
-    try {
-      await Promise.all([
-        page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
-        page.click('button[type=submit]'),
-      ]);
-      const urlAfterLogin = page.url();
-      const titleAfterLogin = await page.title();
-      console.log('step9: after login — url:', urlAfterLogin, '| title:', titleAfterLogin);
-    } catch(e) {
-      const url = page.url();
-      const title = await page.title().catch(() => 'unknown');
-      console.log('step8-FAIL: login submit failed — url:', url, '| title:', title, '| error:', e.message);
-      throw e;
-    }
+    // ── DEBUG: check login form state after submit ────────────────
+    page.click('button[type=submit]');
+    await new Promise(r => setTimeout(r, 10000));
+    const debug = await page.evaluate(() => {
+      const btn = document.querySelector('button[type=submit]');
+      const emailVal = document.querySelector('input[type=email]')?.value;
+      const errMsg = document.querySelector('[class*="error"], [class*="alert"], [class*="Error"]')?.innerText;
+      return {
+        btnExists: !!btn,
+        btnDisabled: btn?.disabled,
+        emailVal: emailVal,
+        errorOnPage: errMsg,
+        currentUrl: window.location.href,
+      };
+    });
+    throw new Error('DEBUG login state: ' + JSON.stringify(debug));
+    // ── END DEBUG ─────────────────────────────────────────────────
   }
 
   // Navigate to article list
