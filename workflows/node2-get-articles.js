@@ -94,12 +94,10 @@ try {
       console.log('step7-WARN: form not found, page HTML snippet:', html.slice(0, 800));
     }
 
-    throw new Error('email value is: ' + email + ' | password length: ' + (password ? password.length : 0));
-
-    await page.click('input[type=email]');
-    await page.type('input[type=email]',    email,    { delay: 60 });
+    await page.focus('input[type=email]');
+    await page.keyboard.type(email, { delay: 60 });
     const emailCheck = await page.$eval('input[type=email]', el => el.value);
-    throw new Error('immediately after typing: ' + emailCheck);
+    throw new Error('keyboard.type result: ' + emailCheck);
 
     await page.click('input[type=password]');
     await page.type('input[type=password]', password, { delay: 60 });
