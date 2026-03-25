@@ -30,7 +30,7 @@ spec:
         - name: N8N_RUNNERS_INSECURE_MODE
           value: "true"
         - name: N8N_RUNNERS_MODE
-          value: "external"
+          value: "internal"
         - name: N8N_RUNNERS_TASK_TIMEOUT
           value: "600"
         envFrom:
