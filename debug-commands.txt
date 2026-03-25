@@ -63,6 +63,20 @@ kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- cat /etc/n8n-task
 # k patch deployment n8n -n preme-n8n --patch-file n8n-env-patch.yaml
 # k rollout status deployment/n8n -n preme-n8n
 #
+# ── FIX: puppeteer modules not found by runner (runner looks in its own node_modules) ──
+# Root cause: /opt/runners/task-runner-javascript/node_modules/ exists but has no puppeteer packages.
+# The runner's require-resolver.js resolves modules from its own directory, not NODE_PATH.
+#
+# Fix: add symlinks in Dockerfile after "COPY --from=builder /install/ /install/":
+#
+# RUN ln -s /install/node_modules/puppeteer-extra /opt/runners/task-runner-javascript/node_modules/puppeteer-extra && \
+#     ln -s /install/node_modules/puppeteer-extra-plugin-stealth /opt/runners/task-runner-javascript/node_modules/puppeteer-extra-plugin-stealth && \
+#     ln -s /install/node_modules/puppeteer-core /opt/runners/task-runner-javascript/node_modules/puppeteer-core
+#
+# Then rebuild as 1.0.7 and push:
+# docker build -t registry.preme-mgmt.con.idst.ibaintern.de/sep61-aat/preme-n8n-runner:1.0.7 .
+# docker push registry.preme-mgmt.con.idst.ibaintern.de/sep61-aat/preme-n8n-runner:1.0.7
+#
 # Step 6: Test chromium in task-runner container
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- /usr/bin/chromium-browser --version
 #
