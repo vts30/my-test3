@@ -31,6 +31,8 @@ spec:
           value: "true"
         - name: N8N_RUNNERS_MODE
           value: "external"
+        - name: N8N_RUNNERS_TASK_TIMEOUT
+          value: "120"
         envFrom:
         - configMapRef:
             name: n8n-app-config
