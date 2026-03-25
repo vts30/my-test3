@@ -94,6 +94,8 @@ try {
       console.log('step7-WARN: form not found, page HTML snippet:', html.slice(0, 800));
     }
 
+    throw new Error('email value is: ' + email + ' | password length: ' + (password ? password.length : 0));
+
     await page.click('input[type=email]');
     await page.type('input[type=email]',    email,    { delay: 60 });
     const emailCheck = await page.$eval('input[type=email]', el => el.value);
