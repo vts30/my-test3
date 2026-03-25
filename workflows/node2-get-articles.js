@@ -14,20 +14,27 @@ const today = new Date().toISOString().split('T')[0];
 
 console.log('step1: launching browser, proxy=', proxy || '(none)', 'source=', source);
 const proxyServer = proxy || '';
-const browser = await puppeteer.launch({
-  executablePath: '/usr/lib/chromium/chromium',
-  args: [
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-blink-features=AutomationControlled',
-    '--ignore-certificate-errors',
-    ...(proxyServer ? [`--proxy-server=${proxyServer}`] : []),
-  ],
-  headless: true,
-  ignoreHTTPSErrors: true,
-  defaultViewport: { width: 1280, height: 800 },
-});
+let browser;
+try {
+  browser = await puppeteer.launch({
+    executablePath: '/usr/lib/chromium/chromium',
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-blink-features=AutomationControlled',
+      '--ignore-certificate-errors',
+      ...(proxyServer ? [`--proxy-server=${proxyServer}`] : []),
+    ],
+    headless: true,
+    ignoreHTTPSErrors: true,
+    defaultViewport: { width: 1280, height: 800 },
+  });
+} catch(e) {
+  console.log('step1-FAIL: browser launch failed:', e.message);
+  throw e;
+}
+console.log('step1-OK: browser launched successfully');
 
 // Helper: accept consent banner (Usercentrics uses shadow DOM)
 const acceptConsent = async (page) => {
@@ -52,30 +59,75 @@ const acceptConsent = async (page) => {
 };
 
 try {
-  console.log('step2: browser launched');
+  console.log('step2: creating new page');
   const page = await browser.newPage();
   page.setDefaultNavigationTimeout(0);
-  console.log('step3: page created');
+  console.log('step3: page created, setting headers');
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
 
   // Login if required
   if (requiresLogin) {
-    console.log('step4: navigating to login', loginUrl);
-    await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
-    console.log('step5: login page loaded');
+    console.log('step4: navigating to login URL:', loginUrl);
+    try {
+      await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
+      const urlAfterGoto = page.url();
+      const titleAfterGoto = await page.title();
+      console.log('step5: login page loaded — url:', urlAfterGoto, '| title:', titleAfterGoto);
+    } catch(e) {
+      const url = page.url();
+      const title = await page.title().catch(() => 'unknown');
+      console.log('step4-FAIL: login goto failed — url:', url, '| title:', title, '| error:', e.message);
+      throw e;
+    }
+
+    console.log('step6: running acceptConsent');
     await acceptConsent(page);
+    const urlAfterConsent = page.url();
+    const titleAfterConsent = await page.title();
+    console.log('step6-OK: after consent — url:', urlAfterConsent, '| title:', titleAfterConsent);
+
+    const emailField = await page.$('input[type=email]');
+    const passField  = await page.$('input[type=password]');
+    console.log('step7: form fields found — email:', !!emailField, '| password:', !!passField);
+    if (!emailField || !passField) {
+      const html = await page.content();
+      console.log('step7-WARN: form not found, page HTML snippet:', html.slice(0, 800));
+    }
+
     await page.type('input[type=email]',    email,    { delay: 60 });
     await page.type('input[type=password]', password, { delay: 60 });
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
-      page.click('button[type=submit]'),
-    ]);
+    console.log('step8: credentials typed, clicking submit');
+
+    try {
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+        page.click('button[type=submit]'),
+      ]);
+      const urlAfterLogin = page.url();
+      const titleAfterLogin = await page.title();
+      console.log('step9: after login — url:', urlAfterLogin, '| title:', titleAfterLogin);
+    } catch(e) {
+      const url = page.url();
+      const title = await page.title().catch(() => 'unknown');
+      console.log('step8-FAIL: login submit failed — url:', url, '| title:', title, '| error:', e.message);
+      throw e;
+    }
   }
 
   // Navigate to article list
-  console.log('step6: navigating to list', listUrl);
-  await page.goto(listUrl, { waitUntil: 'domcontentloaded' });
-  console.log('step7: list page loaded');
+  console.log('step10: navigating to list URL:', listUrl);
+  try {
+    await page.goto(listUrl, { waitUntil: 'domcontentloaded' });
+    const urlAfterList = page.url();
+    const titleAfterList = await page.title();
+    console.log('step11: list page loaded — url:', urlAfterList, '| title:', titleAfterList);
+  } catch(e) {
+    const url = page.url();
+    const title = await page.title().catch(() => 'unknown');
+    console.log('step10-FAIL: list goto failed — url:', url, '| title:', title, '| error:', e.message);
+    throw e;
+  }
+  console.log('step12: running acceptConsent on list page');
   await acceptConsent(page);
 
   // Wait for Angular render (wiwo only)
