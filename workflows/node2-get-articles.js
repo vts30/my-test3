@@ -115,6 +115,7 @@ try {
     const scrapedArticles = [];
     for (const a of todayArticles) {
       const artPage = await browser.newPage();
+      artPage.setDefaultNavigationTimeout(0);
       await artPage.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
       try {
         await artPage.goto(a.url, { waitUntil: 'domcontentloaded' });
