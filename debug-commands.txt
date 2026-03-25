@@ -102,6 +102,19 @@ kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "require(
 # status 200/301 → network OK, issue is proxy or site-specific blocking
 # error ECONNREFUSED/ETIMEDOUT → runner container has no internet access
 #
+# Test puppeteer navigation with proxy (replace PROXY_HERE with actual proxy, e.g. http://host:port):
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "
+const p = require('/install/node_modules/puppeteer-extra');
+p.use(require('/install/node_modules/puppeteer-extra-plugin-stealth')());
+(async () => {
+  const b = await p.launch({ executablePath: '/usr/lib/chromium/chromium', args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--proxy-server=PROXY_HERE'], headless: true });
+  const page = await b.newPage();
+  await page.goto('https://background.tagesspiegel.de', { timeout: 30000 }).catch(e => console.log('nav error:', e.message));
+  console.log('url:', page.url());
+  await b.close();
+})().catch(e => console.log('fatal:', e.message));
+"
+#
 # ── UPDATE TASK-RUNNER IMAGE VERSION ──────────────────────────────────────────
 # Update image in n8n-env-patch.yaml then re-apply, or use kubectl set image:
 kubectl set image deployment/n8n -n preme-n8n task-runner=registry.preme-mgmt.con.idst.ibaintern.de/sep61-aat/preme-n8n-runner:<version>
