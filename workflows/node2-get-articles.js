@@ -67,7 +67,7 @@ try {
     await page.type('input[type=email]',    email,    { delay: 60 });
     await page.type('input[type=password]', password, { delay: 60 });
     await Promise.all([
-      page.waitForNavigation({ waitUntil: 'networkidle2' }),
+      page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
       page.click('button[type=submit]'),
     ]);
   }
