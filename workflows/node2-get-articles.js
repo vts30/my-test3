@@ -12,29 +12,21 @@ const { id, listUrl, loginUrl, email, password, requiresLogin, source, proxy, us
 // Today's date YYYY-MM-DD
 const today = new Date().toISOString().split('T')[0];
 
-console.log('step1: launching browser, proxy=', proxy || '(none)', 'source=', source);
 const proxyServer = proxy || '';
-let browser;
-try {
-  browser = await puppeteer.launch({
-    executablePath: '/usr/lib/chromium/chromium',
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-blink-features=AutomationControlled',
-      '--ignore-certificate-errors',
-      ...(proxyServer ? [`--proxy-server=${proxyServer}`] : []),
-    ],
-    headless: true,
-    ignoreHTTPSErrors: true,
-    defaultViewport: { width: 1280, height: 800 },
-  });
-} catch(e) {
-  console.log('step1-FAIL: browser launch failed:', e.message);
-  throw e;
-}
-console.log('step1-OK: browser launched successfully');
+const browser = await puppeteer.launch({
+  executablePath: '/usr/lib/chromium/chromium',
+  args: [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-blink-features=AutomationControlled',
+    '--ignore-certificate-errors',
+    ...(proxyServer ? [`--proxy-server=${proxyServer}`] : []),
+  ],
+  headless: true,
+  ignoreHTTPSErrors: true,
+  defaultViewport: { width: 1280, height: 800 },
+});
 
 // Helper: accept consent banner (Usercentrics uses shadow DOM)
 const acceptConsent = async (page) => {
@@ -59,40 +51,14 @@ const acceptConsent = async (page) => {
 };
 
 try {
-  console.log('step2: creating new page');
   const page = await browser.newPage();
   page.setDefaultNavigationTimeout(0);
-  console.log('step3: page created, setting headers');
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
 
   // Login if required
   if (requiresLogin) {
-    console.log('step4: navigating to login URL:', loginUrl);
-    try {
-      await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
-      const urlAfterGoto = page.url();
-      const titleAfterGoto = await page.title();
-      console.log('step5: login page loaded — url:', urlAfterGoto, '| title:', titleAfterGoto);
-    } catch(e) {
-      const url = page.url();
-      const title = await page.title().catch(() => 'unknown');
-      console.log('step4-FAIL: login goto failed — url:', url, '| title:', title, '| error:', e.message);
-      throw e;
-    }
-
-    console.log('step6: running acceptConsent');
+    await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
     await acceptConsent(page);
-    const urlAfterConsent = page.url();
-    const titleAfterConsent = await page.title();
-    console.log('step6-OK: after consent — url:', urlAfterConsent, '| title:', titleAfterConsent);
-
-    const emailField = await page.$('input[type=email]');
-    const passField  = await page.$('input[type=password]');
-    console.log('step7: form fields found — email:', !!emailField, '| password:', !!passField);
-    if (!emailField || !passField) {
-      const html = await page.content();
-      console.log('step7-WARN: form not found, page HTML snippet:', html.slice(0, 800));
-    }
 
     if (useNativeSetter) {
       // External runner: use native value setter (page.type keyboard events are untrusted)
@@ -125,19 +91,7 @@ try {
   }
 
   // Navigate to article list
-  console.log('step10: navigating to list URL:', listUrl);
-  try {
-    await page.goto(listUrl, { waitUntil: 'domcontentloaded' });
-    const urlAfterList = page.url();
-    const titleAfterList = await page.title();
-    console.log('step11: list page loaded — url:', urlAfterList, '| title:', titleAfterList);
-  } catch(e) {
-    const url = page.url();
-    const title = await page.title().catch(() => 'unknown');
-    console.log('step10-FAIL: list goto failed — url:', url, '| title:', title, '| error:', e.message);
-    throw e;
-  }
-  console.log('step12: running acceptConsent on list page');
+  await page.goto(listUrl, { waitUntil: 'domcontentloaded' });
   await acceptConsent(page);
 
   // Wait for Angular render (wiwo only)
