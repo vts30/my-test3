@@ -47,7 +47,7 @@ const acceptConsent = async (page) => {
                 findInShadow(document, 'button[data-action-type="accept"]');
     if (btn) btn.click();
   });
-  await new Promise(r => setTimeout(r, 4000));
+  await new Promise(r => setTimeout(r, 2000));
 };
 
 try {
