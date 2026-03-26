@@ -60,8 +60,7 @@ spec:
           value: "premeIsMegaCool"
         - name: N8N_RUNNERS_N8N_URI
           value: "http://localhost:5678"
-        - name: PUPPETEER_EXECUTABLE_PATH
-          value: "/usr/bin/chromium-browser"
+
         - name: NODE_FUNCTION_ALLOW_EXTERNAL
           value: "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core"
         - name: N8N_RUNNERS_TASK_TIMEOUT
