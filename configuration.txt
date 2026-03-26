@@ -1,0 +1,48 @@
+# n8n Helm Configuration
+# All env vars and resource settings required for external runner mode with Chromium scraping.
+# These need to be configured in the Helm template by the team managing the chart.
+
+# ── n8n container ─────────────────────────────────────────────────────────────
+
+env:
+  N8N_RUNNERS_ENABLED:         "true"
+  N8N_RUNNERS_MODE:            "external"
+  N8N_RUNNERS_INSECURE_MODE:   "true"
+  N8N_RUNNERS_AUTH_TOKEN:      "premeIsMegaCool"      # must match task-runner
+  N8N_RUNNERS_TASK_TIMEOUT:    "600"                  # seconds
+  N8N_RUNNERS_MAX_IDLE_TIME:   "3600000"              # milliseconds — prevents idle timeout during long Chromium navigation
+  NODE_FUNCTION_ALLOW_EXTERNAL: "*"
+  N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+  EXEC_ENV_VARS_ENABLED:        "true"
+
+# ── task-runner container ──────────────────────────────────────────────────────
+
+env:
+  N8N_RUNNERS_AUTH_TOKEN:          "premeIsMegaCool"  # must match n8n container
+  N8N_RUNNERS_N8N_URI:             "http://localhost:5678"
+  N8N_RUNNERS_TASK_TIMEOUT:        "600"              # seconds
+  N8N_RUNNERS_IDLE_TIMEOUT:        "3600"             # seconds
+  N8N_RUNNERS_MAX_OLD_SPACE_SIZE:  "1536"             # MB — Node.js heap size
+  NODE_FUNCTION_ALLOW_EXTERNAL:    "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core"
+  N8N_BLOCK_ENV_ACCESS_IN_NODE:    "false"
+  EXEC_ENV_VARS_ENABLED:           "true"
+
+resources:
+  requests:
+    cpu:    "500m"
+    memory: "1Gi"
+  limits:
+    cpu:    "2000m"   # 2 CPU cores — Chromium needs real CPU for rendering + proxy TLS
+    memory: "2Gi"     # Node.js heap 1536MB + Chromium overhead
+
+# ── Helm template snippet (resources block) ───────────────────────────────────
+
+# containers:
+#   - name: task-runner
+#     resources:
+#       requests:
+#         cpu: {{ .Values.taskRunner.resources.requests.cpu }}
+#         memory: {{ .Values.taskRunner.resources.requests.memory }}
+#       limits:
+#         cpu: {{ .Values.taskRunner.resources.limits.cpu }}
+#         memory: {{ .Values.taskRunner.resources.limits.memory }}
