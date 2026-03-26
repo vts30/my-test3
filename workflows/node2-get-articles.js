@@ -30,7 +30,14 @@ const browser = await puppeteer.launch({
 
 // Helper: accept consent banner (Usercentrics uses shadow DOM)
 const acceptConsent = async (page) => {
-  await new Promise(r => setTimeout(r, 3000));
+  // Wait up to 6s for the consent host element, then try to click accept
+  try {
+    await page.waitForSelector('uc-consent-wall,uc-layer-wrapper,#usercentrics-root', { timeout: 6000 });
+  } catch (_) {
+    // No consent element found — page may not need it
+    return;
+  }
+  await new Promise(r => setTimeout(r, 1000));
   await page.evaluate(() => {
     function findInShadow(root, selector) {
       const el = root.querySelector(selector);
@@ -47,7 +54,7 @@ const acceptConsent = async (page) => {
                 findInShadow(document, 'button[data-action-type="accept"]');
     if (btn) btn.click();
   });
-  await new Promise(r => setTimeout(r, 2000));
+  await new Promise(r => setTimeout(r, 1000));
 };
 
 try {
