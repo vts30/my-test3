@@ -44,11 +44,11 @@ spec:
         image: registry.preme-mgmt.con.idst.ibaintern.de/sep61-aat/preme-n8n-runner:1.0.4
         resources:
           requests:
-            cpu: "100m"
-            memory: "256Mi"
-          limits:
             cpu: "500m"
-            memory: "512Mi"
+            memory: "1Gi"
+          limits:
+            cpu: "2000m"
+            memory: "2Gi"
         env:
         - name: EXEC_ENV_VARS_ENABLED
           value: "true"
