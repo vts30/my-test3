@@ -69,7 +69,7 @@ spec:
         - name: N8N_RUNNERS_IDLE_TIMEOUT
           value: "3600"
         - name: N8N_RUNNERS_MAX_OLD_SPACE_SIZE
-          value: "1024"
+          value: "1536"
         envFrom:
         - secretRef:
             name: scraper-creds
