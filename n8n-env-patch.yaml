@@ -64,6 +64,8 @@ spec:
           value: "puppeteer-extra,puppeteer-extra-plugin-stealth,puppeteer-core"
         - name: N8N_RUNNERS_TASK_TIMEOUT
           value: "600"
+        - name: N8N_RUNNERS_IDLE_TIMEOUT
+          value: "3600"
         - name: N8N_RUNNERS_MAX_OLD_SPACE_SIZE
           value: "1024"
         envFrom:
