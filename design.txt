@@ -1,0 +1,83 @@
+# Projektstunden-Dokumentation: Tagesspiegel Integration in n8n
+# Jeder Eintrag = 2 Stunden | Gesamt: 60 Einträge = 120 Stunden
+
+# ── Phase 1 — Recherche & TypeScript Custom Node (12 Einträge) ────────────────
+
+1.  Recherche zur n8n Custom Node Architektur und TypeScript SDK
+2.  TypeScript-Entwicklungsumgebung für n8n Custom Node aufsetzen
+3.  Tagesspiegel HTTP-Client in TypeScript Node implementieren
+4.  Authentifizierungslogik in Custom TypeScript Node integrieren
+5.  Artikellisten-Scraping in TypeScript Node implementieren
+6.  TypeScript-Kompilierungsfehler und n8n Node-Registrierung debuggen
+7.  Deployment der Custom Node im n8n Container testen
+8.  Einschränkungen des HTTP-basierten Scrapings bei Paywall-Inhalten analysieren
+9.  Browser-Automatisierungsalternativen für Paywall-Umgehung recherchieren
+10. Selenium vs. Puppeteer für n8n-Integration evaluieren
+11. Ergebnisse und Einschränkungen des TypeScript-Ansatzes dokumentieren
+12. Entscheidung: Wechsel von TypeScript Custom Node zu Browser-Automatisierung
+
+# ── Phase 2 — Selenium-Ansatz (8 Einträge) ───────────────────────────────────
+
+13. Selenium WebDriver im Docker-Container einrichten
+14. Tagesspiegel-Login-Flow mit Selenium implementieren
+15. Selenium Browser-Session-Management debuggen
+16. Artikellisten-Scraping mit Selenium implementieren
+17. Selenium-Zuverlässigkeit mit Corporate Proxy testen
+18. Selenium Performance- und Timeout-Probleme analysieren
+19. Selenium-Session-Persistenz über Workflow-Nodes debuggen
+20. Entscheidung: Wechsel von Selenium zu Puppeteer/JavaScript Code Node
+
+# ── Phase 3 — Puppeteer & JavaScript Code Node (10 Einträge) ─────────────────
+
+21. Puppeteer-Integration in n8n Code Nodes recherchieren
+22. Initiales Puppeteer-Scraping in n8n Code Node implementieren
+23. Chromium Executable Path im Docker-Image konfigurieren
+24. Consent-Banner-Handling mit Shadow DOM Traversal implementieren
+25. Tagesspiegel-Login-Flow mit Puppeteer implementieren
+26. Artikellisten-Scraping für alle 4 Quellen implementieren (Tagesspiegel, WiWo, SZ-Dossier, Capital)
+27. Artikel-Inhalt-Scraping in derselben Browser-Session implementieren
+28. Puppeteer-Modul-Laden im internen n8n Runner debuggen
+29. Stealth-Plugin zur Umgehung von Bot-Erkennung integrieren
+30. End-to-End-Scraping im internen Runner-Modus testen
+
+# ── Phase 4 — Docker & Kubernetes Setup (10 Einträge) ────────────────────────
+
+31. Eigenes n8n Docker-Basis-Image mit Puppeteer bauen
+32. NODE_PATH-Vererbungsproblem für internen Runner-Subprozess beheben
+33. Dockerfile-Symlinks für Puppeteer-Module implementieren
+34. Kubernetes-Deployment für n8n im Namespace preme-n8n konfigurieren
+35. Kubernetes-Secret scraper-creds für Zugangsdaten einrichten
+36. ConfigMap n8n-app-config mit erforderlichen Einstellungen konfigurieren
+37. Task-Runner Sidecar-Container im Pod konfigurieren
+38. Kubernetes-Ressourcenlimits für Container konfigurieren
+39. Eigenes Image bauen und in Harbor Registry pushen
+40. Deployment-Rollout und Pod-Gesundheit validieren
+
+# ── Phase 5 — Netzwerk & Proxy-Konfiguration (8 Einträge) ────────────────────
+
+41. ERR_CONNECTION_RESET-Fehler auf allen Zielseiten analysieren
+42. Istio Egress Gateway Traffic-Blocking untersuchen
+43. Corporate Proxy für Chromium-Browser konfigurieren
+44. Proxy-Konnektivität für alle 4 Nachrichtenquellen testen
+45. SSL-Zertifikatsfehler mit Proxy debuggen
+46. Istio ServiceEntry für externe Domains konfigurieren
+47. Proxy-Performance und Latenz validieren
+48. Netzwerkkonfiguration für das Team dokumentieren
+
+# ── Phase 6 — External Runner Analyse & Fehlerbehebung (8 Einträge) ──────────
+
+49. Interne vs. externe Task-Runner-Architektur analysieren
+50. Externen Runner-Modus und Task-Runner-Sidecar konfigurieren
+51. Externe Runner-Konnektivität und Authentifizierung debuggen
+52. isTrusted-Keyboard-Event-Problem bei page.type() im externen Runner untersuchen
+53. Native HTMLInputElement Value Setter Fix für Login implementieren
+54. IDLE_TIMEOUT debuggen, der Runner während Chromium-Navigation beendet
+55. Task-Runner Container-Ressourcen (CPU/Memory) für Chromium optimieren
+56. USE_NATIVE_SETTER-Flag für beide Runner-Modi implementieren
+
+# ── Phase 7 — Konfiguration & Dokumentation (4 Einträge) ─────────────────────
+
+57. Alle Umgebungsvariablen und Helm-Konfigurationsanforderungen dokumentieren
+58. configuration.txt mit Helm-Template-Parametern erstellen
+59. CLAUDE.md mit vollständiger Projekthistorie und Debug-Befehlen aktualisieren
+60. Abschließende End-to-End-Validierung und Übergabedokumentation
