@@ -12,7 +12,7 @@
 7.  Selenium Performance- und Timeout-Probleme analysieren
 8.  Entscheidung: Wechsel von Selenium zu TypeScript Custom Node
 
-# ── Phase 2 — TypeScript Custom Node (12 Einträge) ───────────────────────────
+# ── Phase 2 — TypeScript Custom Node (10 Einträge) ───────────────────────────
 
 9.  Recherche zur n8n Custom Node Architektur und TypeScript SDK
 10. TypeScript-Entwicklungsumgebung für n8n Custom Node aufsetzen
@@ -22,36 +22,36 @@
 14. TypeScript-Kompilierungsfehler und n8n Node-Registrierung debuggen
 15. Deployment der Custom Node im n8n Container testen
 16. Einschränkungen des HTTP-basierten Scrapings bei Paywall-Inhalten analysieren
-17. Selenium vs. Puppeteer für n8n-Integration evaluieren
-18. Ergebnisse und Einschränkungen des TypeScript-Ansatzes dokumentieren
-19. Browser-Automatisierungsalternativen für Paywall-Umgehung recherchieren
-20. Entscheidung: Wechsel von TypeScript Custom Node zu JavaScript Code Node
+17. Ergebnisse und Einschränkungen des TypeScript-Ansatzes dokumentieren
+18. Entscheidung: Wechsel zu JavaScript Code Node mit Puppeteer
 
-# ── Phase 3 — Puppeteer & JavaScript Code Node (10 Einträge) ─────────────────
+# ── Phase 3 — Docker & Kubernetes Setup (10 Einträge) ────────────────────────
 
-21. Puppeteer-Integration in n8n Code Nodes recherchieren
-22. Initiales Puppeteer-Scraping in n8n Code Node implementieren
-23. Chromium Executable Path im Docker-Image konfigurieren
-24. Consent-Banner-Handling mit Shadow DOM Traversal implementieren
-25. Tagesspiegel-Login-Flow mit Puppeteer implementieren
-26. Artikellisten-Scraping für alle 4 Quellen implementieren (Tagesspiegel, WiWo, SZ-Dossier, Capital)
-27. Artikel-Inhalt-Scraping in derselben Browser-Session implementieren
-28. Puppeteer-Modul-Laden im internen n8n Runner debuggen
-29. Stealth-Plugin zur Umgehung von Bot-Erkennung integrieren
-30. End-to-End-Scraping im internen Runner-Modus testen
+19. Eigenes n8n Docker-Basis-Image mit Puppeteer bauen
+20. NODE_PATH-Vererbungsproblem für internen Runner-Subprozess beheben
+21. Dockerfile-Symlinks für Puppeteer-Module implementieren
+22. Kubernetes-Deployment für n8n im Namespace preme-n8n konfigurieren
+23. Kubernetes-Secret scraper-creds für Zugangsdaten einrichten
+24. ConfigMap n8n-app-config mit erforderlichen Einstellungen konfigurieren
+25. Task-Runner Sidecar-Container im Pod konfigurieren
+26. Kubernetes-Ressourcenlimits für Container konfigurieren
+27. Eigenes Image bauen und in Harbor Registry pushen
+28. Deployment-Rollout und Pod-Gesundheit validieren
 
-# ── Phase 4 — Docker & Kubernetes Setup (10 Einträge) ────────────────────────
+# ── Phase 4 — Puppeteer & JavaScript Code Node auf Kubernetes (12 Einträge) ──
 
-31. Eigenes n8n Docker-Basis-Image mit Puppeteer bauen
-32. NODE_PATH-Vererbungsproblem für internen Runner-Subprozess beheben
-33. Dockerfile-Symlinks für Puppeteer-Module implementieren
-34. Kubernetes-Deployment für n8n im Namespace preme-n8n konfigurieren
-35. Kubernetes-Secret scraper-creds für Zugangsdaten einrichten
-36. ConfigMap n8n-app-config mit erforderlichen Einstellungen konfigurieren
-37. Task-Runner Sidecar-Container im Pod konfigurieren
-38. Kubernetes-Ressourcenlimits für Container konfigurieren
-39. Eigenes Image bauen und in Harbor Registry pushen
-40. Deployment-Rollout und Pod-Gesundheit validieren
+29. Puppeteer-Integration in n8n Code Nodes recherchieren
+30. Initiales Puppeteer-Scraping in n8n Code Node implementieren
+31. Chromium Executable Path im Kubernetes-Container konfigurieren
+32. Consent-Banner-Handling mit Shadow DOM Traversal implementieren
+33. Tagesspiegel-Login-Flow mit Puppeteer direkt auf Kubernetes testen
+34. Artikellisten-Scraping für alle 4 Quellen implementieren (Tagesspiegel, WiWo, SZ-Dossier, Capital)
+35. Artikel-Inhalt-Scraping in derselben Browser-Session implementieren
+36. Puppeteer-Modul-Laden im internen n8n Runner debuggen
+37. Stealth-Plugin zur Umgehung von Bot-Erkennung integrieren
+38. End-to-End-Scraping im internen Runner-Modus auf Kubernetes testen
+39. Scraping-Ergebnisse validieren und Selektoren anpassen
+40. Internen Runner-Modus als stabile Lösung bestätigen
 
 # ── Phase 5 — Netzwerk & Proxy-Konfiguration (8 Einträge) ────────────────────
 
