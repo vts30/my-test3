@@ -95,4 +95,4 @@
 69. Harbor Registry-Authentifizierung und Push-Prozess einrichten
 70. Image-Tagging-Strategie für preme-n8n-base und preme-n8n-runner festlegen
 71. Neue Image-Version (1.0.5) mit n8n-task-runners.json Anpassungen bauen
-72. Rollback-Strategie bei fehlerhaften Image-Versionen dokumentieren
+72. Fehlerhaftes Image-Rollback auf vorherige Version durchführen und validieren
