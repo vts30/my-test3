@@ -96,3 +96,4 @@
 70. Image-Tagging-Strategie für preme-n8n-base und preme-n8n-runner festlegen
 71. Neue Image-Version (1.0.5) mit n8n-task-runners.json Anpassungen bauen
 72. Fehlerhaftes Image-Rollback auf vorherige Version durchführen und validieren
+73. NODE_FUNCTION_ALLOW_EXTERNAL und n8n-task-runners.json im Runner-Image anpassen und testen
