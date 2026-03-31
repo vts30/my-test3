@@ -81,3 +81,18 @@
 58. configuration.txt mit Helm-Template-Parametern erstellen
 59. CLAUDE.md mit vollständiger Projekthistorie und Debug-Befehlen aktualisieren
 60. Abschließende End-to-End-Validierung und Übergabedokumentation
+
+# ── Phase 8 — Docker Image Build & Registry (12 Einträge) ────────────────────
+
+61. Analyse der bestehenden n8n Basis-Images und Versionskompatibilität
+62. Mehrstufigen Docker-Build (Multi-Stage) für n8n-Image konzipieren
+63. Chromium-Installation und Abhängigkeiten im Docker-Image konfigurieren
+64. Corporate npm Proxy für Image-Build konfigurieren (sdst.sbaintern.de)
+65. Puppeteer-Extra und Stealth-Plugin in /install/node_modules installieren
+66. Eigenes Task-Runner-Image preme-n8n-runner mit Chromium aufbauen
+67. puppeteer-core Errors.js Sandbox-Patch im Runner-Image implementieren
+68. Image-Funktionalität lokal mit docker run und Testskripten validieren
+69. Harbor Registry-Authentifizierung und Push-Prozess einrichten
+70. Image-Tagging-Strategie für preme-n8n-base und preme-n8n-runner festlegen
+71. Neue Image-Version (1.0.5) mit n8n-task-runners.json Anpassungen bauen
+72. Rollback-Strategie bei fehlerhaften Image-Versionen dokumentieren
