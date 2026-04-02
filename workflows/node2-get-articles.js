@@ -136,6 +136,10 @@ try {
       try {
         await artPage.goto(a.url, { waitUntil: 'domcontentloaded' });
         await artPage.waitForSelector('h1.ts-type-h2-alt', { timeout: 10000 }).catch(() => {});
+        await artPage.waitForFunction(
+          () => (document.querySelector('div.ts-page-main-content.ts-paywall-content')?.innerText?.trim()?.length || 0) > 10,
+          { timeout: 15000 }
+        ).catch(() => {});
         const content = await artPage.evaluate(() => {
           const titleEl  = document.querySelector('h1.ts-type-h2-alt');
           const topic    = titleEl?.querySelector('span.ts-type-text-md-base')?.innerText?.trim();
