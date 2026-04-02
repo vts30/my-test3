@@ -125,7 +125,7 @@ try {
       }))
     );
 
-    const todayArticles = allArticles.filter(a => a.isoDate && a.isoDate.startsWith(today));
+    const todayArticles = allArticles.filter(a => a.isoDate && a.isoDate.startsWith(today) && !a.url.includes('/briefing/'));
 
     // Scrape each article in the same authenticated browser session
     const scrapedArticles = [];
