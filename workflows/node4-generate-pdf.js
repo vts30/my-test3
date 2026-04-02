@@ -4,7 +4,8 @@
 
 const puppeteer = require('puppeteer-extra');
 
-const { title, body, lead, author, source, url, published, topic } = $json;
+const { title, body, lead, teaser, author, source, url, published, topic } = $json;
+const content = body || lead || teaser || '';
 
 const html = `
 <!DOCTYPE html>
@@ -56,7 +57,7 @@ const html = `
     ${url ? '· <a href="' + url + '">' + url + '</a>' : ''}
   </div>
   ${lead ? '<div class="lead">' + lead + '</div>' : ''}
-  <div class="body">${(body || '').replace(/\n/g, '<br>')}</div>
+  <div class="body">${content.replace(/\n/g, '<br>')}</div>
 </body>
 </html>
 `;
