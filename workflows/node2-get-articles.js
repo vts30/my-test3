@@ -139,7 +139,12 @@ try {
         const content = await artPage.evaluate(() => {
           const titleEl  = document.querySelector('h1.ts-type-h2-alt');
           const topic    = titleEl?.querySelector('span.ts-type-text-md-base')?.innerText?.trim();
-          const title    = titleEl?.innerText?.replace(topic || '', '').trim();
+          const title    = [...(titleEl?.childNodes || [])]
+                             .filter(n => n.nodeType === 3)
+                             .map(n => n.textContent.trim())
+                             .filter(Boolean)
+                             .join(' ')
+                             .trim();
           const lead     = document.querySelector('section.ts-article-intro p.ts-type-alt-bold-lg')?.innerText?.trim();
           const body     = document.querySelector('div.ts-page-main-content.ts-paywall-content')?.innerText?.trim();
           const author   = document.querySelector('p.ts-type-author')?.innerText?.replace('von', '').trim();
