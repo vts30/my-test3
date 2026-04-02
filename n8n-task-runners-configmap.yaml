@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: n8n-task-runners-config
+  namespace: preme-n8n
+data:
+  n8n-task-runners.json: |
+    {
+      "task-runners": [
+        {
+          "runner-type": "javascript",
+          "workdir": "/home/runner",
+          "command": "/usr/local/bin/node",
+          "args": [
+            "--disallow-code-generation-from-strings",
+            "--disable-proto=delete",
+            "/opt/runners/task-runner-javascript/dist/start.js"
+          ],
+          "health-check-server-port": "5681",
+          "env": {
+            "PATH": "REPLACE_ME",
+            "N8N_OPTIONS": "REPLACE_ME",
+            "N8N_RUNNERS_AUTO_SHUTDOWN_TIMEOUT": "REPLACE_ME",
+            "N8N_RUNNERS_MAX_PAYLOAD": "REPLACE_ME",
+            "N8N_RUNNERS_MAX_CONCURRENCY": "REPLACE_ME",
+            "N8N_VERSION": "REPLACE_ME",
+            "FORCE_COLOR": "REPLACE_ME",
+            "CONTAINER_NAME": "REPLACE_ME",
+            "NODE_PATH": "REPLACE_ME",
+            "EXEC_ENV_VARS_ENABLED": "true",
+            "N8N_BLOCK_ENV_ACCESS_IN_NODE": "false"
+          },
+          "env-overrides": {
+            "N8N_RUNNERS_TASK_TIMEOUT": "REPLACE_ME",
+            "N8N_RUNNERS_MAX_OLD_SPACE_SIZE": "REPLACE_ME"
+          }
+        }
+      ]
+    }
