@@ -30,22 +30,7 @@ const browser = await puppeteer.launch({
 
 // Helper: accept consent banner (Usercentrics uses shadow DOM)
 const acceptConsent = async (page) => {
-  // Wait up to 5s for banner to appear, then click — no fixed pre-wait
-  await page.waitForFunction(() => {
-    function findInShadow(root, selector) {
-      const el = root.querySelector(selector);
-      if (el) return el;
-      for (const elem of root.querySelectorAll('*')) {
-        if (elem.shadowRoot) {
-          const found = findInShadow(elem.shadowRoot, selector);
-          if (found) return found;
-        }
-      }
-      return null;
-    }
-    return !!(findInShadow(document, '#accept') ||
-              findInShadow(document, 'button[data-action-type="accept"]'));
-  }, { timeout: 5000 }).catch(() => {});
+  await new Promise(r => setTimeout(r, 2000));
   await page.evaluate(() => {
     function findInShadow(root, selector) {
       const el = root.querySelector(selector);
@@ -151,10 +136,7 @@ try {
       try {
         await artPage.goto(a.url, { waitUntil: 'domcontentloaded' });
         await artPage.waitForSelector('h1.ts-type-h2-alt', { timeout: 10000 }).catch(() => {});
-        await artPage.waitForFunction(
-          () => (document.querySelector('div.ts-page-main-content.ts-paywall-content')?.innerText?.trim()?.length || 0) > 10,
-          { timeout: 15000 }
-        ).catch(() => {});
+        await new Promise(r => setTimeout(r, 2000));
         const content = await artPage.evaluate(() => {
           const titleEl  = document.querySelector('h1.ts-type-h2-alt');
           const topic    = titleEl?.querySelector('span.ts-type-text-md-base')?.innerText?.trim();
