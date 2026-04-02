@@ -3,10 +3,8 @@
 // Receives one scraped article, returns binary PDF
 
 const puppeteer = require('puppeteer-extra');
-const Stealth   = require('puppeteer-extra-plugin-stealth');
-puppeteer.use(Stealth());
 
-const { title, body, lead, author, source, url, published } = $json;
+const { title, body, lead, author, source, url, published, topic } = $json;
 
 const html = `
 <!DOCTYPE html>
@@ -36,12 +34,20 @@ const html = `
       margin-bottom: 16px;
       font-size: 15px;
     }
+    .topic {
+      color: #0066cc;
+      font-size: 12px;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
     .body {
       font-size: 14px;
     }
   </style>
 </head>
 <body>
+  ${topic ? '<div class="topic">' + topic + '</div>' : ''}
   <h1>${title || ''}</h1>
   <div class="meta">
     ${source || ''}
