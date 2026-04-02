@@ -14,7 +14,7 @@ const html = `
   <meta charset="utf-8">
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: sans-serif;
       margin: 40px;
       line-height: 1.6;
       color: #222;
@@ -68,6 +68,7 @@ const browser = await puppeteer.launch({
     '--no-sandbox',
     '--disable-setuid-sandbox',
     '--disable-dev-shm-usage',
+    '--disable-gpu',
   ],
   headless: true,
 });
