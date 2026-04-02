@@ -1,17 +1,33 @@
-// Local test for pure Node.js PDF generation
+// Local test for pure Node.js PDF generation (multi-article)
 const fs = require('fs');
 
-// Mock data
-const $json = {
-  title: 'Woher kommen die Milliarden?',
-  teaser: 'Auf Begeisterung folgt nun der Frust: Die deutschen Bewerber für die KI-Gigafabriken bemängeln, dass die Kommission weniger Geld investieren werde als ursprünglich angekündigt. Doch stimmt das tatsächlich? Wir schlüsseln auf, wie viel Geld die EU-Institution tatsächlich beisteuern wird.',
-  topic: 'KI-Gigafabriken',
-  source: 'tagesspiegel',
-  author: 'Anna Ströbele Romero & Oliver Voß',
-  published: '2026-04-02',
-};
-
-const { title, teaser, topic, source, author, published } = $json;
+// Mock $input.all() with multiple articles
+const articles = [
+  {
+    title: 'Woher kommen die Milliarden?',
+    teaser: 'Auf Begeisterung folgt nun der Frust: Die deutschen Bewerber für die KI-Gigafabriken bemängeln, dass die Kommission weniger Geld investieren werde als ursprünglich angekündigt. Doch stimmt das tatsächlich? Wir schlüsseln auf, wie viel Geld die EU-Institution tatsächlich beisteuern wird.',
+    topic: 'KI-Gigafabriken',
+    source: 'tagesspiegel',
+    author: 'Anna Ströbele Romero & Oliver Voß',
+    published: '2026-04-02',
+  },
+  {
+    title: 'Die KI-Regulierung kommt – aber wie?',
+    teaser: 'Der EU AI Act tritt in Kraft. Was bedeutet das für deutsche Unternehmen? Ein Überblick über die wichtigsten Anforderungen und Fristen, die auf Firmen zukommen.',
+    topic: 'Regulierung',
+    source: 'tagesspiegel',
+    author: 'Max Mustermann',
+    published: '2026-04-02',
+  },
+  {
+    title: 'Quantencomputer erreichen neuen Meilenstein',
+    teaser: 'Forscher am Fraunhofer-Institut haben einen Quantencomputer mit 1000 Qubits entwickelt, der erstmals praktische Berechnungen schneller als klassische Supercomputer durchführen kann.',
+    topic: 'Quantencomputing',
+    source: 'tagesspiegel',
+    author: 'Julia Schmidt',
+    published: '2026-04-02',
+  },
+];
 
 // ── CP1252 encoding ───────────────────────────────────────────────────────────
 function toCP1252(str) {
@@ -93,18 +109,27 @@ const items = [];
 const addLine = (text, bold, size, r, g, b, spaceAfter = 0) =>
   items.push({ text, bold, size, r, g, b, spaceAfter });
 
-if (topic) addLine(topic.toUpperCase(), false, 9, 0.0, 0.4, 0.8, 6);
+for (let idx = 0; idx < articles.length; idx++) {
+  const { title, teaser, topic, source, author, published } = articles[idx];
 
-for (const l of wrapLines(title, 18, TW))
-  addLine(l, true, 18, 0.1, 0.1, 0.1, 2);
-addLine('', false, 6, 0, 0, 0, 0);
+  if (idx > 0) {
+    addLine('────────────────────────────────────────────────────', false, 9, 0.8, 0.8, 0.8, 8);
+  }
 
-const meta = [source, author ? '| '+author : null, published ? '| '+published : null]
-  .filter(Boolean).join('  ');
-if (meta) addLine(meta, false, 9, 0.5, 0.5, 0.5, 10);
+  if (topic) addLine(topic.toUpperCase(), false, 9, 0.0, 0.4, 0.8, 4);
 
-for (const l of wrapLines(teaser, 12, TW))
-  addLine(l, false, 12, 0.15, 0.15, 0.15, 0);
+  for (const l of wrapLines(title || 'Untitled', 15, TW))
+    addLine(l, true, 15, 0.1, 0.1, 0.1, 2);
+
+  const meta = [source, author ? '| '+author : null, published ? '| '+published : null]
+    .filter(Boolean).join('  ');
+  if (meta) addLine(meta, false, 8, 0.5, 0.5, 0.5, 6);
+
+  for (const l of wrapLines(teaser, 11, TW))
+    addLine(l, false, 11, 0.15, 0.15, 0.15, 0);
+
+  addLine('', false, 6, 0, 0, 0, 8);
+}
 
 // ── Paginate ──────────────────────────────────────────────────────────────────
 const pages = [[]];

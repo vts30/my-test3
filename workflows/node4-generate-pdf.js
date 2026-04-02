@@ -1,4 +1,5 @@
-const { title, teaser, topic, source, author, published } = $json;
+// Reads ALL articles from previous node and generates one combined PDF
+const articles = $input.all().map(item => item.json);
 
 // ── CP1252 encoding ───────────────────────────────────────────────────────────
 function toCP1252(str) {
@@ -80,18 +81,28 @@ const items = [];
 const addLine = (text, bold, size, r, g, b, spaceAfter = 0) =>
   items.push({ text, bold, size, r, g, b, spaceAfter });
 
-if (topic) addLine(topic.toUpperCase(), false, 9, 0.0, 0.4, 0.8, 6);
+for (let idx = 0; idx < articles.length; idx++) {
+  const { title, teaser, topic, source, author, published } = articles[idx];
 
-for (const l of wrapLines(title || 'Untitled', 18, TW))
-  addLine(l, true, 18, 0.1, 0.1, 0.1, 2);
-addLine('', false, 6, 0, 0, 0, 0);
+  // Separator line between articles (except before the first)
+  if (idx > 0) {
+    addLine('────────────────────────────────────────────────────', false, 9, 0.8, 0.8, 0.8, 8);
+  }
 
-const meta = [source, author ? '| '+author : null, published ? '| '+published : null]
-  .filter(Boolean).join('  ');
-if (meta) addLine(meta, false, 9, 0.5, 0.5, 0.5, 10);
+  if (topic) addLine(topic.toUpperCase(), false, 9, 0.0, 0.4, 0.8, 4);
 
-for (const l of wrapLines(teaser, 12, TW))
-  addLine(l, false, 12, 0.15, 0.15, 0.15, 0);
+  for (const l of wrapLines(title || 'Untitled', 15, TW))
+    addLine(l, true, 15, 0.1, 0.1, 0.1, 2);
+
+  const meta = [source, author ? '| '+author : null, published ? '| '+published : null]
+    .filter(Boolean).join('  ');
+  if (meta) addLine(meta, false, 8, 0.5, 0.5, 0.5, 6);
+
+  for (const l of wrapLines(teaser, 11, TW))
+    addLine(l, false, 11, 0.15, 0.15, 0.15, 0);
+
+  addLine('', false, 6, 0, 0, 0, 8);
+}
 
 // ── Paginate ──────────────────────────────────────────────────────────────────
 const pages = [[]];
@@ -151,7 +162,8 @@ for (let i = 1; i <= total; i++)
 pdf += `trailer\n<< /Size ${total+1} /Root 1 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
 
 const buf = Buffer.from(pdf, 'latin1');
-const fileName = `article_${Date.now()}.pdf`;
+const today = new Date().toISOString().split('T')[0];
+const fileName = `briefing_${today}.pdf`;
 const binaryData = await this.helpers.prepareBinaryData(buf, fileName, 'application/pdf');
 
 return [{ binary: { data: binaryData } }];
