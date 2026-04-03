@@ -2,7 +2,12 @@
 // Input: LLM API response (OpenAI-compatible format)
 // Output: PDF binary with rendered markdown (##, **bold**, - bullets)
 
-return [{ json: { debug: JSON.stringify($json) } }];
+const first = $input.first();
+return [{ json: {
+  json_keys: Object.keys($json),
+  input_json: JSON.stringify(first?.json).slice(0, 500),
+  input_binary_keys: Object.keys(first?.binary || {}),
+} }];
 
 const content = $json.choices?.[0]?.message?.content || '';
 const today = new Date().toISOString().split('T')[0];
