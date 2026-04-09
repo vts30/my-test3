@@ -12,3 +12,5 @@ spec:
     protocol: TCP
   location: MESH_EXTERNAL
   resolution: DNS
+  exportTo:
+  - "."
