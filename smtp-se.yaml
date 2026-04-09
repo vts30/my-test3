@@ -1,0 +1,14 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: smtp-external
+  namespace: preme-n8n
+spec:
+  hosts:
+  - smtpex1.baintern.de
+  ports:
+  - number: 25
+    name: smtp
+    protocol: TCP
+  location: MESH_EXTERNAL
+  resolution: DNS
