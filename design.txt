@@ -112,6 +112,6 @@
 
 79. Prompt Engineering für Zusammenfassung entwickelt und getestet: System-Prompt für deutschsprachige Bullet-Point-Zusammenfassung entworfen, 5 Testartikel durch Hub geschickt, Ausgabequalität bewertet, Prompt iterativ angepasst bis konsistentes Format erreicht wurde
 
-80. Artikel-Chunking-Logik implementiert: Maximale Token-Grenze des LLM (8192) recherchiert, Textlänge der Eingabeartikel gemessen, Chunking-Logik für lange Artikel implementiert, Testlauf mit 10 langen Artikeln durchgeführt und zusammengeführte Zusammenfassung validiert
+80. Kontextlänge und Modellgrenzen untersucht: Token-Limit des eingesetzten Mistral-Small-24B-Modells ermittelt, durchschnittliche Artikellänge über alle 4 Quellen gemessen, maximale Anzahl gleichzeitig verarbeitbarer Artikel berechnet, Testlauf mit vollständigem Tages-Briefing (10 Artikel) durchgeführt und sichergestellt dass Gesamtkontext innerhalb der Modellgrenzen bleibt
 
 81. Input-Validierung im Prepare Hub Request Node ergänzt: Pflichtfelder (title, teaser, source) auf Vollständigkeit geprüft, Warnmeldung bei fehlenden Feldern implementiert, Testlauf mit absichtlich leerem title-Feld durchgeführt, korrekte Fehlerbehandlung ohne Workflow-Abbruch bestätigt
