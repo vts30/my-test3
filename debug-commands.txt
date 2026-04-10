@@ -689,3 +689,7 @@ const t = nodemailer.createTransport({
 });
 t.verify((e, s) => console.log(e ? 'ERROR: ' + e.message : 'OK'));
 "
+
+# Revert excludeOutboundPorts patch — re-enable Istio routing for SMTP ports
+kubectl patch deployment n8n -n preme-n8n --type=json \
+  -p='[{"op":"remove","path":"/spec/template/metadata/annotations/traffic.sidecar.istio.io~1excludeOutboundPorts"}]'
