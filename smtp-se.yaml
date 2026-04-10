@@ -25,6 +25,8 @@ metadata:
   namespace: preme-n8n
 spec:
   host: smtpex1.baintern.de
+  exportTo:
+  - "."
   trafficPolicy:
     tls:
       mode: DISABLE
