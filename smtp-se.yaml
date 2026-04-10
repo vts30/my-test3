@@ -14,3 +14,14 @@ spec:
   resolution: DNS
   exportTo:
   - "."
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: smtp-external
+  namespace: preme-n8n
+spec:
+  host: smtpex1.baintern.de
+  trafficPolicy:
+    tls:
+      mode: DISABLE
