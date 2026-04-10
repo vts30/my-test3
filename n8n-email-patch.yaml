@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: n8n
+  namespace: preme-n8n
+spec:
+  template:
+    spec:
+      containers:
+      - name: n8n
+        env:
+        - name: NODE_TLS_REJECT_UNAUTHORIZED
+          value: "0"
