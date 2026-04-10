@@ -707,3 +707,9 @@ const t = nodemailer.createTransport({
 });
 t.verify((e, s) => console.log(e ? 'ERROR: ' + e.message : 'OK'));
 "
+
+# SMTP FIX — delete ServiceEntry and DestinationRule (they break STARTTLS)
+# Without them, Istio passes TCP through cleanly and STARTTLS works
+kubectl delete serviceentry smtp-external -n preme-n8n
+kubectl delete destinationrule smtp-external -n preme-n8n
+# Settings: port 25, SSL/TLS OFF, Disable STARTTLS OFF
