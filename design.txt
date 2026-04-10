@@ -97,3 +97,21 @@
 71. Neue Image-Version (1.0.5) mit n8n-task-runners.json Anpassungen bauen
 72. Fehlerhaftes Image-Rollback auf vorherige Version durchführen und validieren
 73. NODE_FUNCTION_ALLOW_EXTERNAL und n8n-task-runners.json im Runner-Image anpassen und testen
+
+# ── Phase 9 — get-article & Prepare Hub Request Integration (8 Einträge) ──────
+
+74. Analyse des get-article Code Nodes: Scraping-Logik für alle 4 Quellen (Tagesspiegel, WiWo, SZ-Dossier, Capital) durchgearbeitet, CSS-Selektoren und Login-Flow je Quelle dokumentiert, Testlauf mit echten Artikeln durchgeführt und Ausgabestruktur (title, teaser, author, topic, published) validiert
+
+75. Datum-basierte Filterung implementiert und getestet: Logik für heutiges Datum eingebaut, Edge Case "keine Artikel heute" reproduziert, Fallback auf gestern implementiert, Testlauf mit leerem Ergebnis durchgeführt und korrekte Weiterleitung der gestrigen Artikel bestätigt
+
+76. Fehlerbehandlung pro Artikel implementiert: Fehlerfall bei einzelnem Artikel simuliert (ungültige URL), try/catch-Logik je Artikel eingebaut, Logging des Fehlers mit Artikel-URL ergänzt, sichergestellt dass restliche Artikel weiterverarbeitet werden ohne Workflow-Abbruch
+
+77. Browser-Session-Optimierung analysiert und getestet: Chromium-Startzeit gemessen (ca. 8s), Möglichkeit der Session-Wiederverwendung zwischen Artikeln untersucht, bestehende Implementierung mit einer Browser-Instanz für alle Artikel validiert, Laufzeitverbesserung dokumentiert
+
+78. Hub API Request-Struktur dokumentiert: Prepare Hub Request Node analysiert, Payload-Format (messages, model, max_tokens) dokumentiert, Auth-Header und Token-Handling überprüft, Testanfrage an PreMe-GenAI-Hub gesendet und Response-Schema (choices, content) validiert
+
+79. Prompt Engineering für Zusammenfassung entwickelt und getestet: System-Prompt für deutschsprachige Bullet-Point-Zusammenfassung entworfen, 5 Testartikel durch Hub geschickt, Ausgabequalität bewertet, Prompt iterativ angepasst bis konsistentes Format erreicht wurde
+
+80. Artikel-Chunking-Logik implementiert: Maximale Token-Grenze des LLM (8192) recherchiert, Textlänge der Eingabeartikel gemessen, Chunking-Logik für lange Artikel implementiert, Testlauf mit 10 langen Artikeln durchgeführt und zusammengeführte Zusammenfassung validiert
+
+81. Input-Validierung im Prepare Hub Request Node ergänzt: Pflichtfelder (title, teaser, source) auf Vollständigkeit geprüft, Warnmeldung bei fehlenden Feldern implementiert, Testlauf mit absichtlich leerem title-Feld durchgeführt, korrekte Fehlerbehandlung ohne Workflow-Abbruch bestätigt
