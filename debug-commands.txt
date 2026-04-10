@@ -652,3 +652,28 @@ k rollout status deployment/n8n -n preme-n8n
 #   const PROXY       = $env.SCRAPER_PROXY || '';
 #   const TS_EMAIL    = $env.TS_EMAIL    || '';
 #   const TS_PASSWORD = $env.TS_PASSWORD || '';
+
+
+# ── SMTP DEBUG ─────────────────────────────────────────────────────────────────
+
+# Test raw TCP connection to SMTP server (bypasses n8n and Istio TLS)
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- node -e "
+const net = require('net');
+const s = net.connect(25, 'smtpex1.baintern.de', () => console.log('CONNECTED'));
+s.on('data', d => console.log('DATA:', d.toString()));
+s.on('error', e => console.log('ERROR:', e.message));
+s.on('close', () => console.log('CLOSED'));
+setTimeout(() => s.destroy(), 5000);
+"
+
+# Check istio-proxy access log for SMTP traffic (run right after retrying credential test)
+kubectl logs deployment/n8n -n preme-n8n -c istio-proxy --tail=50
+
+# Check n8n container log for SMTP errors
+kubectl logs deployment/n8n -n preme-n8n -c n8n | grep -i "smtp\|mail\|connect\|error" | tail=20
+
+# Test port connectivity
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- nc -zv smtpex1.baintern.de 25
+
+# Apply SMTP ServiceEntry + DestinationRule
+kubectl apply -f smtp-se.yaml
