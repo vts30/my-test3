@@ -677,3 +677,15 @@ kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- nc -zv smtpex1.baintern.d
 
 # Apply SMTP ServiceEntry + DestinationRule
 kubectl apply -f smtp-se.yaml
+
+# Test nodemailer directly inside n8n pod (uses n8n's bundled nodemailer)
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- node -e "
+const nodemailer = require('/usr/local/lib/node_modules/n8n/node_modules/nodemailer');
+const t = nodemailer.createTransport({
+  host: 'smtpex1.baintern.de',
+  port: 587,
+  secure: false,
+  tls: { rejectUnauthorized: false }
+});
+t.verify((e, s) => console.log(e ? 'ERROR: ' + e.message : 'OK'));
+"
