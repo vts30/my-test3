@@ -28,3 +28,12 @@ spec:
   trafficPolicy:
     tls:
       mode: DISABLE
+    portLevelSettings:
+    - port:
+        number: 25
+      tls:
+        mode: DISABLE
+    - port:
+        number: 587
+      tls:
+        mode: DISABLE
