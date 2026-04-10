@@ -5,6 +5,9 @@ metadata:
   namespace: preme-n8n
 spec:
   template:
+    metadata:
+      annotations:
+        traffic.sidecar.istio.io/excludeOutboundPorts: "25,587"
     spec:
       containers:
       - name: n8n
