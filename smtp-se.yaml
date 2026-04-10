@@ -9,7 +9,7 @@ spec:
   ports:
   - number: 25
     name: smtp
-    protocol: TCP
+    protocol: SMTP
   location: MESH_EXTERNAL
   resolution: DNS
   exportTo:
