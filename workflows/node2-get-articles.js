@@ -134,9 +134,7 @@ try {
       artPage.setDefaultNavigationTimeout(0);
       await artPage.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
       try {
-        await artPage.goto(a.url, { waitUntil: 'domcontentloaded' });
-        await artPage.waitForSelector('h1.ts-type-h2-alt', { timeout: 10000 }).catch(() => {});
-        await new Promise(r => setTimeout(r, 2000));
+        await artPage.goto(a.url, { waitUntil: 'networkidle0' });
         const content = await artPage.evaluate(() => {
           const titleEl  = document.querySelector('h1.ts-type-h2-alt');
           const topic    = titleEl?.querySelector('span.ts-type-text-md-base')?.innerText?.trim();
