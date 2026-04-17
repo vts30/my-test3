@@ -713,3 +713,20 @@ t.verify((e, s) => console.log(e ? 'ERROR: ' + e.message : 'OK'));
 kubectl delete serviceentry smtp-external -n preme-n8n
 kubectl delete destinationrule smtp-external -n preme-n8n
 # Settings: port 25, SSL/TLS OFF, Disable STARTTLS OFF
+
+# ── TAGESSPIEGEL PAYWALL DEBUG ─────────────────────────────────────────────────
+
+# Add this temporarily in node2 after artPage.goto() to check if paywall div exists and has content
+# Place after: await new Promise(r => setTimeout(r, 5000));
+const debug = await artPage.evaluate(() => {
+  const el = document.querySelector('div.ts-page-main-content.ts-paywall-content');
+  return {
+    exists: !!el,
+    length: el?.innerText?.length,
+    preview: el?.innerText?.slice(0, 100),
+    childCount: el?.children?.length,
+  };
+});
+throw new Error(JSON.stringify(debug));
+# If exists=true but length=0 → subscription check API is failing in Puppeteer
+# If exists=false → wrong selector
