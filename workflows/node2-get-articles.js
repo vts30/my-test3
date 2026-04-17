@@ -134,7 +134,8 @@ try {
       artPage.setDefaultNavigationTimeout(0);
       await artPage.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
       try {
-        await artPage.goto(a.url, { waitUntil: 'networkidle0' });
+        await artPage.goto(a.url, { waitUntil: 'domcontentloaded' });
+        await new Promise(r => setTimeout(r, 5000));
         const content = await artPage.evaluate(() => {
           const titleEl  = document.querySelector('h1.ts-type-h2-alt');
           const topic    = titleEl?.querySelector('span.ts-type-text-md-base')?.innerText?.trim();
