@@ -760,3 +760,13 @@ throw new Error('After login URL: ' + afterLoginUrl + ' | Cookies: ' + loginCook
 # Expected cookies: should include auth/session token, not just analytics cookies
 # If URL is still login page → login form submission failed
 # If URL changed but no auth cookies → server rejected credentials silently
+
+# Check hidden fields in login form — look for CSRF token or other required fields
+# Add temporarily in node2 right before clicking submit button
+const hiddenFields = await page.evaluate(() =>
+  [...document.querySelectorAll('input[type=hidden]')]
+    .map(el => ({ name: el.name, value: el.value.slice(0, 50) }))
+);
+throw new Error(JSON.stringify(hiddenFields));
+# If CSRF token found → need to include it in form submission
+# If empty → login may require captcha or other mechanism
