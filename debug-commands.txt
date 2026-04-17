@@ -750,3 +750,13 @@ artPage.on('response', async (response) => {
 });
 # If no error thrown → none of these API calls are made (different paywall mechanism)
 # If error thrown → shows status code: 401/403 = auth failed, 0 = blocked by proxy
+
+# Check cookies and URL after login — verify login actually succeeded
+# Add temporarily in node2 right after Promise.all([waitForNavigation, click submit])
+const afterLoginUrl = page.url();
+const loginCookies = await page.cookies();
+throw new Error('After login URL: ' + afterLoginUrl + ' | Cookies: ' + loginCookies.map(c => c.name).join(', '));
+# Expected: URL should be dashboard/home (not login page)
+# Expected cookies: should include auth/session token, not just analytics cookies
+# If URL is still login page → login form submission failed
+# If URL changed but no auth cookies → server rejected credentials silently
