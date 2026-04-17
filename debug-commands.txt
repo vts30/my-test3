@@ -730,3 +730,11 @@ const debug = await artPage.evaluate(() => {
 throw new Error(JSON.stringify(debug));
 # If exists=true but length=0 → subscription check API is failing in Puppeteer
 # If exists=false → wrong selector
+
+# Check cookies on article page — verify session cookies are shared from login
+# Add temporarily in node2 after artPage.goto()
+const cookies = await artPage.cookies('https://background.tagesspiegel.de');
+throw new Error('Cookies: ' + cookies.map(c => c.name).join(', '));
+
+# Expected: should see session/auth cookies like 'ts_session', 'auth_token' etc.
+# If empty or missing auth cookies → login session not carried over to article page
