@@ -770,3 +770,13 @@ const hiddenFields = await page.evaluate(() =>
 throw new Error(JSON.stringify(hiddenFields));
 # If CSRF token found → need to include it in form submission
 # If empty → login may require captcha or other mechanism
+
+# Check if fingerprint field gets populated before login submit
+# Add temporarily in node2 right before Promise.all, after typing credentials
+await new Promise(r => setTimeout(r, 3000));
+const fingerprint = await page.evaluate(() =>
+  document.querySelector('input[name=fingerprint]')?.value
+);
+throw new Error('Fingerprint: ' + fingerprint);
+# If empty → site detects Puppeteer as bot, fingerprint JS not running
+# If populated → fingerprint is fine, issue is elsewhere
