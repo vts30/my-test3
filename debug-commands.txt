@@ -738,3 +738,15 @@ throw new Error('Cookies: ' + cookies.map(c => c.name).join(', '));
 
 # Expected: should see session/auth cookies like 'ts_session', 'auth_token' etc.
 # If empty or missing auth cookies → login session not carried over to article page
+
+# Intercept subscription/paywall API calls on article page
+# Add BEFORE artPage.goto() in node2 scraping loop
+artPage.on('response', async (response) => {
+  const url = response.url();
+  if (url.includes('subscription') || url.includes('entitlement') || url.includes('piano') || url.includes('tinypass')) {
+    const status = response.status();
+    throw new Error(`API: ${status} ${url}`);
+  }
+});
+# If no error thrown → none of these API calls are made (different paywall mechanism)
+# If error thrown → shows status code: 401/403 = auth failed, 0 = blocked by proxy
