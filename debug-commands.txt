@@ -780,3 +780,18 @@ const fingerprint = await page.evaluate(() =>
 throw new Error('Fingerprint: ' + fingerprint);
 # If empty → site detects Puppeteer as bot, fingerprint JS not running
 # If populated → fingerprint is fine, issue is elsewhere
+
+# ── TEST CREDENTIALS IN KUBERNETES ─────────────────────────────────────────────
+
+# Temporarily replace TS credentials in K8s secret with personal account to test subscription
+kubectl patch secret scraper-creds -n preme-n8n --type=json \
+  -p='[{"op":"replace","path":"/data/TS_EMAIL","value":"'$(echo -n "your@email.com" | base64)'"},{"op":"replace","path":"/data/TS_PASSWORD","value":"'$(echo -n "yourpassword" | base64)'"}]'
+
+# Restart pod to pick up new secret values
+kubectl rollout restart deployment/n8n -n preme-n8n
+kubectl rollout status deployment/n8n -n preme-n8n
+
+# If body content appears after this → svc_sep63-preme has no Tagesspiegel subscription
+# Restore original credentials after testing
+kubectl patch secret scraper-creds -n preme-n8n --type=json \
+  -p='[{"op":"replace","path":"/data/TS_EMAIL","value":"'$(echo -n "svc_sep63-preme@baintern.de" | base64)'"}]'
