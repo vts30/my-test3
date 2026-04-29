@@ -115,3 +115,59 @@
 80. Kontextlänge und Modellgrenzen untersucht: Token-Limit des eingesetzten Mistral-Small-24B-Modells ermittelt, durchschnittliche Artikellänge über alle 4 Quellen gemessen, maximale Anzahl gleichzeitig verarbeitbarer Artikel berechnet, Testlauf mit vollständigem Tages-Briefing (10 Artikel) durchgeführt und sichergestellt dass Gesamtkontext innerhalb der Modellgrenzen bleibt
 
 81. Input-Validierung im Prepare Hub Request Node ergänzt: Pflichtfelder (title, teaser, source) auf Vollständigkeit geprüft, Warnmeldung bei fehlenden Feldern implementiert, Testlauf mit absichtlich leerem title-Feld durchgeführt, korrekte Fehlerbehandlung ohne Workflow-Abbruch bestätigt
+
+# ── Phase 10 — Tagesspiegel Volltext-Debugging & Paywall-Analyse (10 Einträge) ─
+
+82. Tagesspiegel Artikelinhalt leer — Erstanalyse: body-Feld nach Scraping leer, obwohl Artikel im Browser sichtbar, CSS-Selektor div.ts-page-main-content.ts-paywall-content überprüft, DevTools-Inspektion durchgeführt und bestätigt dass div im DOM vorhanden aber Inhalt nicht geladen wurde
+
+83. waitForFunction vs. setTimeout Debugging: festgestellt dass waitForFunction im n8n internal runner zu Deadlocks führt, Ursache recherchiert (Runner-Subprocess blockiert bei Polling), waitForFunction durch setTimeout(5000) ersetzt und Testlauf durchgeführt — Runner läuft stabil durch
+
+84. networkidle0 vs. domcontentloaded Analyse: networkidle0 als alternative waitUntil-Strategie getestet, Verhalten durch Corporate Proxy analysiert, festgestellt dass networkidle0 mit Proxy-Latenzen zu früh completed, zurückgewechselt zu domcontentloaded mit 5000ms Timeout
+
+85. Paywall-Div Existenzprüfung implementiert: Debug-Code in get-article eingebaut der exists/length/childCount des ts-paywall-content Divs ausgibt, Testlauf ergab exists=true, length=0, childCount=16 — Div vorhanden aber leer, Paywall-JS nicht abgeschlossen
+
+86. Cookie-Analyse nach Login: Cookie-Debug nach Login eingebaut, festgestellt dass nur Analytics-Cookies gesetzt werden (\_ga, \_hjSession etc.), keine Auth-Session-Cookies vorhanden, Login-Redirect zur Startseite geht zwar durch aber Session ist Guest-Session
+
+87. Fingerprint-Feld Untersuchung: Verstecktes Formularfeld fingerprint im Login-Formular entdeckt, Debug ergab dass Feld nach 3 Sekunden noch leer ist, Analyse ergibt dass Fingerprint-JS (Bot-Detection) den Chromium-Browser erkennt und Fingerprint nicht generiert
+
+88. headless: true vs. false Vergleichstest: lokaler Test mit headless: false durchgeführt — Login erfolgreich, Artikelinhalt vollständig vorhanden, anschließend headless: true getestet — Login auch erfolgreich, Artikelinhalt ebenfalls vorhanden auf macOS Chrome, Schlussfolgerung: Problem ist Linux-spezifisch in Kubernetes
+
+89. Chromium-Version und Stealth-Plugin Analyse: Chromium-Version im Kubernetes-Container überprüft, puppeteer-extra-plugin-stealth auf korrekte Installation validiert, User-Agent-String analysiert, headless: 'new' als Alternative getestet — fingerprint bleibt weiterhin leer im Container
+
+90. Credentials-Untersuchung in Kubernetes: Service-Account svc\_sep63-preme auf Tagesspiegel-Subscription überprüft, persönliches Test-Konto temporär in node1 hardcodiert und Workflow ausgeführt, Ergebnis: auch mit eigenem Konto kein Artikelinhalt in Kubernetes — Problem liegt am Linux-Chromium-Environment, nicht an Credentials
+
+91. Lokaler Testskript-Vergleich mit Kubernetes: test-tagesspiegel-login.js lokal ausgeführt — alle 11 Artikel mit vollem body-Inhalt gescrapt, identischer Code in n8n Kubernetes liefert leere body-Felder, Root Cause: Linux Alpine Chromium-Build verhält sich anders als macOS Chrome bei der Paywall-JS-Ausführung
+
+# ── Phase 11 — E-Mail-Versand via SMTP (8 Einträge) ──────────────────────────
+
+92. SMTP-Konfiguration in n8n: Send Email Node eingerichtet, SMTP-Credentials für smtpex1.baintern.de konfiguriert, Port 25 gesetzt, ersten Verbindungstest durchgeführt — SSL-Fehler (wrong version number) erhalten
+
+93. Istio-Interferenz mit SMTP analysiert: ServiceEntry für smtpex1.baintern.de erstellt um Istio-Routing zu konfigurieren, DestinationRule mit tls: DISABLE hinzugefügt, festgestellt dass Istio STARTTLS-Handshake unterbricht und connection closed Fehler verursacht
+
+94. SMTP-Port-Analyse: Port 25 und 587 auf Erreichbarkeit getestet (nc -zv), beide Ports offen, nodemailer direkt im n8n Container getestet, connection closed Fehler in beiden Fällen durch Istio-Sidecar verursacht
+
+95. Istio excludeOutboundPorts getestet: Annotation traffic.sidecar.istio.io/excludeOutboundPorts: "25,587" auf n8n Deployment gesetzt um Istio-Sidecar zu umgehen, Ergebnis: Timeout weil Istio-Egress-Gateway für Routing benötigt wird — Ansatz verworfen
+
+96. SMTP-Lösung gefunden: ServiceEntry und DestinationRule gelöscht, festgestellt dass ohne diese Ressourcen Istio den TCP-Traffic transparent durchleitet, STARTTLS funktioniert korrekt, SMTP-Credential-Test in n8n erfolgreich — Verbindung bestätigt
+
+97. E-Mail-Anhang konfiguriert: Send Email Node mit PDF-Binärfeld als Anhang konfiguriert, Binary Property auf data gesetzt, Test-E-Mail mit PDF-Anhang gesendet, Anhang korrekt im E-Mail-Client empfangen und geöffnet
+
+98. SMTP-Fehler 550 behoben: Fehlermeldung "Client does not have permissions to send as this sender" erhalten, From-Adresse auf exakte Service-Account-E-Mail-Adresse korrigiert, erneuter Test erfolgreich
+
+99. End-to-End E-Mail-Workflow validiert: Vollständiger Workflow von Artikel-Scraping über LLM-Zusammenfassung, PDF-Generierung bis E-Mail-Versand durchgeführt, PDF-Briefing erfolgreich per E-Mail empfangen und inhaltlich geprüft
+
+# ── Phase 12 — PDF-Generierung (7 Einträge) ──────────────────────────────────
+
+100. Puppeteer-basierte PDF-Generierung analysiert: node4 mit Chromium-PDF-Export getestet, leeres PDF erhalten weil Alpine Linux keine System-Fonts installiert hat, Chromium rendert Text unsichtbar, Screenshot zur Fehlerdiagnose erstellt
+
+101. Pure Node.js PDF-Implementierung entwickelt: CP1252-Encoding für deutsche Sonderzeichen implementiert (ä, ö, ü, ß, „, "), Helvetica Type1-Built-in-Fonts verwendet die ohne System-Fonts funktionieren, PDF-Objekt-Struktur manuell aufgebaut mit korrekter XRef-Tabelle
+
+102. Textumbruch und Seitenumbruch implementiert: Helvetica Glyph-Width-Tabelle für exakte Textbreitenberechnung eingebaut, wrapLines-Funktion für automatischen Zeilenumbruch entwickelt, Paginierungslogik für mehrseitige PDFs implementiert und mit langem Artikel getestet
+
+103. n8n Binary Data Format korrigiert: falsches Format pdfBuffer.toString('base64') durch korrektes this.helpers.prepareBinaryData(buf, fileName, 'application/pdf') ersetzt, PDF-Download im n8n UI funktioniert korrekt
+
+104. Multi-Artikel PDF implementiert: node4 von Einzelartikel auf alle Artikel umgestellt, \$input.all() eingesetzt um alle Items zu lesen, Trennlinien zwischen Artikeln eingefügt, Testlauf mit 10 Artikeln durchgeführt — ein PDF mit allen Artikeln generiert
+
+105. Zusammenfassungs-PDF mit LLM-Markdown entwickelt: node10 für AI-Summary-PDF erstellt, Markdown-Parser für Überschriften (##) und Fettschrift (**text**) implementiert, Schriftgrößen und Farben je nach Element-Typ gesetzt, mehrseitiges Summary-PDF validiert
+
+106. PDF lokal getestet und verifiziert: test-pdf.js und test-summary-pdf.js lokal ausgeführt, PDF-Output geöffnet und Layout geprüft, deutsche Sonderzeichen korrekt dargestellt, Datei an Kollegen zur Prüfung weitergegeben
