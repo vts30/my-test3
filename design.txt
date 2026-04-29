@@ -118,56 +118,56 @@
 
 # ── Phase 10 — Tagesspiegel Volltext-Debugging & Paywall-Analyse (10 Einträge) ─
 
-82. Tagesspiegel Artikelinhalt leer — Erstanalyse: body-Feld nach Scraping leer, obwohl Artikel im Browser sichtbar, CSS-Selektor div.ts-page-main-content.ts-paywall-content überprüft, DevTools-Inspektion durchgeführt und bestätigt dass div im DOM vorhanden aber Inhalt nicht geladen wurde
+82. Tagesspiegel body-Feld leer analysiert: CSS-Selektor überprüft, DevTools-Inspektion ergab div vorhanden aber Inhalt leer — Paywall-JS nicht abgeschlossen
 
-83. waitForFunction vs. setTimeout Debugging: festgestellt dass waitForFunction im n8n internal runner zu Deadlocks führt, Ursache recherchiert (Runner-Subprocess blockiert bei Polling), waitForFunction durch setTimeout(5000) ersetzt und Testlauf durchgeführt — Runner läuft stabil durch
+83. waitForFunction durch setTimeout ersetzt: waitForFunction verursacht Deadlock im n8n Runner-Subprocess, durch setTimeout(5000) ersetzt — Runner stabil
 
-84. networkidle0 vs. domcontentloaded Analyse: networkidle0 als alternative waitUntil-Strategie getestet, Verhalten durch Corporate Proxy analysiert, festgestellt dass networkidle0 mit Proxy-Latenzen zu früh completed, zurückgewechselt zu domcontentloaded mit 5000ms Timeout
+84. networkidle0 vs. domcontentloaded getestet: networkidle0 durch Proxy-Latenz zu früh abgeschlossen, zurückgewechselt zu domcontentloaded mit 5000ms Timeout
 
-85. Paywall-Div Existenzprüfung implementiert: Debug-Code in get-article eingebaut der exists/length/childCount des ts-paywall-content Divs ausgibt, Testlauf ergab exists=true, length=0, childCount=16 — Div vorhanden aber leer, Paywall-JS nicht abgeschlossen
+85. Paywall-Div Debug eingebaut: exists=true, length=0, childCount=16 — Div vorhanden aber leer, Paywall-JS läuft nicht vollständig durch
 
-86. Cookie-Analyse nach Login: Cookie-Debug nach Login eingebaut, festgestellt dass nur Analytics-Cookies gesetzt werden (\_ga, \_hjSession etc.), keine Auth-Session-Cookies vorhanden, Login-Redirect zur Startseite geht zwar durch aber Session ist Guest-Session
+86. Cookie-Analyse nach Login: nur Analytics-Cookies gesetzt (_ga, _hjSession), keine Auth-Cookies — Session ist Guest-Session trotz Login-Redirect
 
-87. Fingerprint-Feld Untersuchung: Verstecktes Formularfeld fingerprint im Login-Formular entdeckt, Debug ergab dass Feld nach 3 Sekunden noch leer ist, Analyse ergibt dass Fingerprint-JS (Bot-Detection) den Chromium-Browser erkennt und Fingerprint nicht generiert
+87. Fingerprint-Feld untersucht: verstecktes Feld fingerprint im Login-Formular entdeckt, bleibt leer — Bot-Detection verhindert Fingerprint-Generierung in Chromium
 
-88. headless: true vs. false Vergleichstest: lokaler Test mit headless: false durchgeführt — Login erfolgreich, Artikelinhalt vollständig vorhanden, anschließend headless: true getestet — Login auch erfolgreich, Artikelinhalt ebenfalls vorhanden auf macOS Chrome, Schlussfolgerung: Problem ist Linux-spezifisch in Kubernetes
+88. headless true vs. false verglichen: lokal mit headless: false und headless: true getestet — beide funktionieren auf macOS, Problem ist Linux-spezifisch
 
-89. Chromium-Version und Stealth-Plugin Analyse: Chromium-Version im Kubernetes-Container überprüft, puppeteer-extra-plugin-stealth auf korrekte Installation validiert, User-Agent-String analysiert, headless: 'new' als Alternative getestet — fingerprint bleibt weiterhin leer im Container
+89. Stealth-Plugin und headless: 'new' getestet: Chromium-Version im Container geprüft, headless: 'new' probiert — fingerprint bleibt leer im Kubernetes-Container
 
-90. Credentials-Untersuchung in Kubernetes: Service-Account svc\_sep63-preme auf Tagesspiegel-Subscription überprüft, persönliches Test-Konto temporär in node1 hardcodiert und Workflow ausgeführt, Ergebnis: auch mit eigenem Konto kein Artikelinhalt in Kubernetes — Problem liegt am Linux-Chromium-Environment, nicht an Credentials
+90. Credentials in Kubernetes gewechselt: persönliches Konto temporär in node1 eingetragen, Ergebnis identisch — Problem liegt am Linux-Chromium, nicht an Credentials
 
-91. Lokaler Testskript-Vergleich mit Kubernetes: test-tagesspiegel-login.js lokal ausgeführt — alle 11 Artikel mit vollem body-Inhalt gescrapt, identischer Code in n8n Kubernetes liefert leere body-Felder, Root Cause: Linux Alpine Chromium-Build verhält sich anders als macOS Chrome bei der Paywall-JS-Ausführung
+91. Lokaler Testskript-Vergleich: test-tagesspiegel-login.js lokal ausgeführt — alle 11 Artikel mit vollem Inhalt, identischer Code in Kubernetes liefert leere body-Felder
 
 # ── Phase 11 — E-Mail-Versand via SMTP (8 Einträge) ──────────────────────────
 
-92. SMTP-Konfiguration in n8n: Send Email Node eingerichtet, SMTP-Credentials für smtpex1.baintern.de konfiguriert, Port 25 gesetzt, ersten Verbindungstest durchgeführt — SSL-Fehler (wrong version number) erhalten
+92. SMTP-Konfiguration in n8n: Send Email Node eingerichtet, Port 25 konfiguriert, erster Test ergibt SSL-Fehler (wrong version number)
 
-93. Istio-Interferenz mit SMTP analysiert: ServiceEntry für smtpex1.baintern.de erstellt um Istio-Routing zu konfigurieren, DestinationRule mit tls: DISABLE hinzugefügt, festgestellt dass Istio STARTTLS-Handshake unterbricht und connection closed Fehler verursacht
+93. Istio-Interferenz analysiert: ServiceEntry und DestinationRule erstellt, Istio unterbricht STARTTLS-Handshake — connection closed Fehler
 
-94. SMTP-Port-Analyse: Port 25 und 587 auf Erreichbarkeit getestet (nc -zv), beide Ports offen, nodemailer direkt im n8n Container getestet, connection closed Fehler in beiden Fällen durch Istio-Sidecar verursacht
+94. Port 25 und 587 getestet: beide Ports offen (nc -zv bestätigt), nodemailer direkt im Container getestet — connection closed durch Istio-Sidecar
 
-95. Istio excludeOutboundPorts getestet: Annotation traffic.sidecar.istio.io/excludeOutboundPorts: "25,587" auf n8n Deployment gesetzt um Istio-Sidecar zu umgehen, Ergebnis: Timeout weil Istio-Egress-Gateway für Routing benötigt wird — Ansatz verworfen
+95. excludeOutboundPorts getestet: Istio-Sidecar für Ports 25/587 umgangen, Ergebnis: Timeout weil Egress-Gateway für Routing benötigt — Ansatz verworfen
 
-96. SMTP-Lösung gefunden: ServiceEntry und DestinationRule gelöscht, festgestellt dass ohne diese Ressourcen Istio den TCP-Traffic transparent durchleitet, STARTTLS funktioniert korrekt, SMTP-Credential-Test in n8n erfolgreich — Verbindung bestätigt
+96. SMTP-Lösung: ServiceEntry und DestinationRule gelöscht, Istio leitet TCP transparent durch, STARTTLS funktioniert, Verbindungstest erfolgreich
 
-97. E-Mail-Anhang konfiguriert: Send Email Node mit PDF-Binärfeld als Anhang konfiguriert, Binary Property auf data gesetzt, Test-E-Mail mit PDF-Anhang gesendet, Anhang korrekt im E-Mail-Client empfangen und geöffnet
+97. PDF-Anhang konfiguriert: Binary Property auf data gesetzt, Test-E-Mail mit PDF gesendet und erfolgreich empfangen
 
-98. SMTP-Fehler 550 behoben: Fehlermeldung "Client does not have permissions to send as this sender" erhalten, From-Adresse auf exakte Service-Account-E-Mail-Adresse korrigiert, erneuter Test erfolgreich
+98. Fehler 550 behoben: From-Adresse auf exakte Service-Account-Adresse korrigiert, erneuter Test erfolgreich
 
-99. End-to-End E-Mail-Workflow validiert: Vollständiger Workflow von Artikel-Scraping über LLM-Zusammenfassung, PDF-Generierung bis E-Mail-Versand durchgeführt, PDF-Briefing erfolgreich per E-Mail empfangen und inhaltlich geprüft
+99. End-to-End validiert: Scraping → LLM → PDF → E-Mail vollständig durchgelaufen, Briefing per E-Mail empfangen und geprüft
 
 # ── Phase 12 — PDF-Generierung (7 Einträge) ──────────────────────────────────
 
-100. Puppeteer-basierte PDF-Generierung analysiert: node4 mit Chromium-PDF-Export getestet, leeres PDF erhalten weil Alpine Linux keine System-Fonts installiert hat, Chromium rendert Text unsichtbar, Screenshot zur Fehlerdiagnose erstellt
+100. Puppeteer-PDF analysiert: leeres PDF weil Alpine Linux keine System-Fonts hat, Chromium rendert Text unsichtbar
 
-101. Pure Node.js PDF-Implementierung entwickelt: CP1252-Encoding für deutsche Sonderzeichen implementiert (ä, ö, ü, ß, „, "), Helvetica Type1-Built-in-Fonts verwendet die ohne System-Fonts funktionieren, PDF-Objekt-Struktur manuell aufgebaut mit korrekter XRef-Tabelle
+101. Pure Node.js PDF entwickelt: CP1252-Encoding für deutsche Sonderzeichen, Helvetica Type1-Fonts ohne System-Fonts, PDF-Struktur manuell aufgebaut
 
-102. Textumbruch und Seitenumbruch implementiert: Helvetica Glyph-Width-Tabelle für exakte Textbreitenberechnung eingebaut, wrapLines-Funktion für automatischen Zeilenumbruch entwickelt, Paginierungslogik für mehrseitige PDFs implementiert und mit langem Artikel getestet
+102. Textumbruch und Pagination implementiert: Glyph-Width-Tabelle für Textmessung, wrapLines-Funktion, mehrseitige PDFs getestet
 
-103. n8n Binary Data Format korrigiert: falsches Format pdfBuffer.toString('base64') durch korrektes this.helpers.prepareBinaryData(buf, fileName, 'application/pdf') ersetzt, PDF-Download im n8n UI funktioniert korrekt
+103. n8n Binary Format korrigiert: pdfBuffer.toString('base64') durch this.helpers.prepareBinaryData() ersetzt, PDF-Download funktioniert
 
-104. Multi-Artikel PDF implementiert: node4 von Einzelartikel auf alle Artikel umgestellt, \$input.all() eingesetzt um alle Items zu lesen, Trennlinien zwischen Artikeln eingefügt, Testlauf mit 10 Artikeln durchgeführt — ein PDF mit allen Artikeln generiert
+104. Multi-Artikel PDF: $input.all() eingesetzt, alle 10 Artikel in ein PDF zusammengeführt, Trennlinien zwischen Artikeln eingefügt
 
-105. Zusammenfassungs-PDF mit LLM-Markdown entwickelt: node10 für AI-Summary-PDF erstellt, Markdown-Parser für Überschriften (##) und Fettschrift (**text**) implementiert, Schriftgrößen und Farben je nach Element-Typ gesetzt, mehrseitiges Summary-PDF validiert
+105. Summary-PDF entwickelt: Markdown-Parser für ## und **text**, Schriftgrößen je Element-Typ, mehrseitiges PDF validiert
 
-106. PDF lokal getestet und verifiziert: test-pdf.js und test-summary-pdf.js lokal ausgeführt, PDF-Output geöffnet und Layout geprüft, deutsche Sonderzeichen korrekt dargestellt, Datei an Kollegen zur Prüfung weitergegeben
+106. PDF lokal getestet: test-pdf.js und test-summary-pdf.js ausgeführt, Layout und deutsche Sonderzeichen geprüft
