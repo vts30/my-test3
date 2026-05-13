@@ -2,7 +2,6 @@ import {
   INodeType,
   INodeTypeDescription,
   ISupplyDataFunctions,
-  NodeConnectionType,
   SupplyData,
 } from 'n8n-workflow';
 import { ChatOpenAI } from '@langchain/openai';
@@ -24,7 +23,7 @@ export class PremeGenAIHub implements INodeType {
       resources: {},
     },
     inputs: [],
-    outputs: [NodeConnectionType.AiLanguageModel],
+    outputs: ['ai_languageModel' as const],
     outputNames: ['Model'],
     properties: [
       {
