@@ -1,0 +1,32 @@
+{
+  "name": "n8n-nodes-preme-genaihub",
+  "version": "0.1.0",
+  "description": "n8n Language Model node for PreMe GenAI Hub (vLLM)",
+  "keywords": ["n8n-community-node-package"],
+  "license": "MIT",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "tsc --project tsconfig.json --watch"
+  },
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/CustomLmInternApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/PremeGenAIHub/PremeGenAIHub.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "typescript": "^5.0.0",
+    "n8n-workflow": "*"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "dependencies": {
+    "@langchain/openai": "^0.3.0"
+  }
+}

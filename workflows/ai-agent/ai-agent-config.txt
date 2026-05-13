@@ -1,0 +1,32 @@
+# AI Agent Node Configuration
+# Paste these values directly into the AI Agent node in n8n UI
+
+# ── AI Agent → Parameters tab ─────────────────────────────────────────────────
+
+Source for Prompt (User Message):
+  Define below
+
+Prompt (User Message):
+  {{ $json.userPrompt }}
+
+
+# ── AI Agent → Settings tab ───────────────────────────────────────────────────
+
+System Message:
+  Du bist ein analytischer Research-Assistent.
+  Deine Aufgabe ist es, mehrere Artikel strukturiert, prägnant und redundanzfrei zusammenzufassen.
+
+  Wichtig:
+  - Keine isolierten Einzelzusammenfassungen
+  - Wiederholungen vermeiden
+  - Klare Struktur
+  - Sachlich-analytischer Stil
+
+
+# ── Chat Model sub-node (PremeGenAIHub / OpenAI Chat Model) ───────────────────
+
+Base URL:   http://vllm-stack-router-service.preme-genai-hub.svc.cluster.local/v1
+Model:      /Mistral-Small-24B-Instruct-2506
+Temperature: 0.2
+Top P:       0.9
+Max Tokens:  1500
