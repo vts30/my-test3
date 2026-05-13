@@ -23,8 +23,7 @@ export class PremeGenAIHub implements INodeType {
       resources: {},
     },
     inputs: [],
-    outputs: ['ai_languageModel' as const],
-    outputNames: ['Model'],
+    outputs: [{ type: 'ai_languageModel', displayName: 'Model' }] as any,
     properties: [
       {
         displayName: 'Base URL',
