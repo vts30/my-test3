@@ -796,7 +796,6 @@ kubectl rollout status deployment/n8n -n preme-n8n
 kubectl patch secret scraper-creds -n preme-n8n --type=json \
   -p='[{"op":"replace","path":"/data/TS_EMAIL","value":"'$(echo -n "svc_sep63-preme@baintern.de" | base64)'"}]'
 
-
 # test
 for secret in labelstudio-tls preme-ide-infra-tls; do
   echo "--- $secret ---"
