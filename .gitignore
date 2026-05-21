@@ -12,3 +12,6 @@ context.txt
 
 # Local test scripts with credentials
 test-tagesspiegel-login.js
+
+# Claude Code instructions (keep local only)
+CLAUDE.md
