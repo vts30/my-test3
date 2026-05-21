@@ -801,3 +801,7 @@ for secret in labelstudio-tls preme-ide-infra-tls; do
   echo "--- $secret ---"
   kubectl get secret $secret -n preme-uc7-ide -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -noout -dates
 done
+
+
+#certificate
+openssl s_client -connect github.webapp.dst.baintern.de:443 2>/dev/null | openssl x509 -noout -dates
