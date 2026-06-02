@@ -200,26 +200,26 @@
 
 # ── Phase 14 — Ersatz HTTP-Node durch AI Agent Node (12 Einträge) ─────────────
 
-119. Bestehenden HTTP-Node analysiert: manuell aufgebauter OpenAI-Request-Body (messages, model, max_tokens), Auth-Header, Response-Parsing — Komplexität und Wartungsaufwand dokumentiert
+119. HTTP-Node analysiert: manueller Request-Body, Auth-Header und Response-Parsing dokumentiert, Wartungsaufwand bewertet
 
-120. n8n AI Agent Node recherchiert: Dokumentation zu AI Agent, Chat Model Sub-Node und Prompt-Konfiguration durchgearbeitet, Unterschied zu HTTP-Node-Ansatz verstanden
+120. n8n AI Agent Node recherchiert: Dokumentation zu AI Agent und Chat Model Sub-Node durchgearbeitet, Unterschied zum HTTP-Ansatz verstanden
 
-121. PremeGenAIHub Custom Node untersucht: Credentials-Struktur, Base URL und Model-Feld geprüft, Kompatibilität mit AI Agent Chat Model Sub-Node bestätigt
+121. PremeGenAIHub Custom Node geprüft: Credentials, Base URL und Model-Feld validiert, Kompatibilität mit Chat Model Sub-Node bestätigt
 
-122. AI Agent Node in Workflow eingefügt: HTTP-Node ersetzt, Source for Prompt auf "Define below" gesetzt, {{ $json.userPrompt }} als User Message eingetragen
+122. AI Agent Node eingefügt: HTTP-Node ersetzt, {{ $json.userPrompt }} als User Message gesetzt, Workflow-Verbindungen angepasst
 
-123. System-Prompt in AI Agent Settings konfiguriert: deutschsprachiger Analyst-Prompt eingetragen, Stil- und Formatvorgaben gesetzt, Redundanz-Vermeidung angewiesen
+123. System-Prompt konfiguriert: deutschsprachiger Analyst-Prompt in AI Agent Settings eingetragen, Stil- und Formatvorgaben gesetzt
 
-124. Chat Model Sub-Node konfiguriert: Base URL auf vllm-stack-router-service gesetzt, Modell Mistral-Small-24B-Instruct-2506 eingetragen, Temperature 0.2, Top P 0.9, Max Tokens 1500
+124. Chat Model Sub-Node konfiguriert: Base URL vllm-stack-router-service, Modell Mistral-Small-24B, Temperature 0.2, Max Tokens 1500
 
-125. prepare-ai-request.js überarbeitet: alten Code der den vollen HTTP-Body baute entfernt, neuer Output nur noch { userPrompt, articleText, articleCount }, Artikel-Formatierung beibehalten
+125. prepare-ai-request.js vereinfacht: HTTP-Body-Aufbau entfernt, Output auf { userPrompt, articleCount } reduziert
 
-126. Verbindung zum vllm-Service getestet: kubectl exec curl-Test auf vllm-stack-router-service.preme-genai-hub.svc.cluster.local, HTTP 200 bestätigt, Modell-Endpunkt erreichbar
+126. vllm-Service-Verbindung getestet: curl-Test per kubectl exec, HTTP 200 bestätigt, Modell-Endpunkt erreichbar
 
-127. Ersten Testlauf mit AI Agent durchgeführt: 5 Artikel eingegeben, Antwort erhalten, Ausgabestruktur (Executive Summary, Themen, Trends) mit altem HTTP-Node-Ergebnis verglichen
+127. Ersten Testlauf durchgeführt: 5 Artikel durch AI Agent, Ausgabe (Executive Summary, Themen, Trends) mit altem Ergebnis verglichen
 
-128. Ausgabequalität und Tokenverbrauch analysiert: Antwortlänge gemessen, Max Tokens 1500 ausreichend für 10 Artikel, Temperature-Anpassung auf 0.2 für konsistentes Format getestet
+128. Ausgabequalität analysiert: Max Tokens 1500 ausreichend für 10 Artikel, Temperature 0.2 liefert konsistentes Format
 
-129. Fehlerfall getestet: vllm-Service temporär nicht erreichbar simuliert, AI Agent Fehlermeldung ausgewertet, Retry-Verhalten dokumentiert
+129. Fehlerfall getestet: vllm-Service nicht erreichbar simuliert, Fehlermeldung des AI Agent ausgewertet
 
-130. End-to-End-Validierung: Scraping → prepare-ai-request → AI Agent → PDF → E-Mail vollständig durchgelaufen, Briefing-Qualität geprüft und mit altem Ansatz verglichen — AI Agent stabiler und wartungsärmer
+130. End-to-End validiert: Scraping → AI Agent → PDF → E-Mail durchgelaufen, Briefing-Qualität geprüft — AI Agent stabiler und wartungsärmer
