@@ -197,3 +197,29 @@
 117. Fallback auf Teaser-Text implementiert: bei leerem body automatisch Teaser eingesetzt, "(Teaser)"-Markierung angehängt, LLM-Zusammenfassung trotzdem durchgelaufen
 
 118. Volltext-Extraktion aller 4 Quellen verglichen: SZ-Dossier und Capital vollständig, WiWo ~30% paywalled, Tagesspiegel weiterhin leer im Container — Workarounds je Quelle dokumentiert
+
+# ── Phase 14 — Ersatz HTTP-Node durch AI Agent Node (12 Einträge) ─────────────
+
+119. Bestehenden HTTP-Node analysiert: manuell aufgebauter OpenAI-Request-Body (messages, model, max_tokens), Auth-Header, Response-Parsing — Komplexität und Wartungsaufwand dokumentiert
+
+120. n8n AI Agent Node recherchiert: Dokumentation zu AI Agent, Chat Model Sub-Node und Prompt-Konfiguration durchgearbeitet, Unterschied zu HTTP-Node-Ansatz verstanden
+
+121. PremeGenAIHub Custom Node untersucht: Credentials-Struktur, Base URL und Model-Feld geprüft, Kompatibilität mit AI Agent Chat Model Sub-Node bestätigt
+
+122. AI Agent Node in Workflow eingefügt: HTTP-Node ersetzt, Source for Prompt auf "Define below" gesetzt, {{ $json.userPrompt }} als User Message eingetragen
+
+123. System-Prompt in AI Agent Settings konfiguriert: deutschsprachiger Analyst-Prompt eingetragen, Stil- und Formatvorgaben gesetzt, Redundanz-Vermeidung angewiesen
+
+124. Chat Model Sub-Node konfiguriert: Base URL auf vllm-stack-router-service gesetzt, Modell Mistral-Small-24B-Instruct-2506 eingetragen, Temperature 0.2, Top P 0.9, Max Tokens 1500
+
+125. prepare-ai-request.js überarbeitet: alten Code der den vollen HTTP-Body baute entfernt, neuer Output nur noch { userPrompt, articleText, articleCount }, Artikel-Formatierung beibehalten
+
+126. Verbindung zum vllm-Service getestet: kubectl exec curl-Test auf vllm-stack-router-service.preme-genai-hub.svc.cluster.local, HTTP 200 bestätigt, Modell-Endpunkt erreichbar
+
+127. Ersten Testlauf mit AI Agent durchgeführt: 5 Artikel eingegeben, Antwort erhalten, Ausgabestruktur (Executive Summary, Themen, Trends) mit altem HTTP-Node-Ergebnis verglichen
+
+128. Ausgabequalität und Tokenverbrauch analysiert: Antwortlänge gemessen, Max Tokens 1500 ausreichend für 10 Artikel, Temperature-Anpassung auf 0.2 für konsistentes Format getestet
+
+129. Fehlerfall getestet: vllm-Service temporär nicht erreichbar simuliert, AI Agent Fehlermeldung ausgewertet, Retry-Verhalten dokumentiert
+
+130. End-to-End-Validierung: Scraping → prepare-ai-request → AI Agent → PDF → E-Mail vollständig durchgelaufen, Briefing-Qualität geprüft und mit altem Ansatz verglichen — AI Agent stabiler und wartungsärmer
