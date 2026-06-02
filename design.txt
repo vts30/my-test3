@@ -171,3 +171,29 @@
 105. Summary-PDF entwickelt: Markdown-Parser für ## und **text**, Schriftgrößen je Element-Typ, mehrseitiges PDF validiert
 
 106. PDF lokal getestet: test-pdf.js und test-summary-pdf.js ausgeführt, Layout und deutsche Sonderzeichen geprüft
+
+107. PDF-Header und Seitennummerierung implementiert: Kopfzeile mit Datum und Quell-Label je Seite eingefügt, Fußzeile mit "Seite X von Y" ergänzt, Gesamtseitenzahl in zwei Durchläufen berechnet (Erst-Durchlauf ermittelt Gesamtanzahl, Zweit-Durchlauf rendert mit korrektem Wert), Testlauf mit 10 Artikeln validiert — Layout und Pagination korrekt
+
+108. PDF-Deckblatt entwickelt: erste Seite als Cover-Page gestaltet, Briefing-Titel, Datum und Anzahl der Artikel zentriert gerendert, Trennlinie zum ersten Artikel-Block eingefügt, Seitennummerierung erst ab Seite 2 gestartet, Testlauf mit unterschiedlicher Artikelanzahl (3, 7, 10) validiert
+
+109. Lange Artikel-Texte und Pagination getestet: Artikel mit über 5.000 Zeichen durch PDF-Node geleitet, Zeilenumbrüche an Wortgrenzen geprüft, Seitenüberlauf bei sehr langem Absatz reproduziert und Splitting-Logik auf Absatz-Ebene korrigiert, kein abgeschnittener Text mehr in Testläufen
+
+110. Sonderzeichen-Encoding für alle 4 Quellen validiert: ä, ö, ü, ß, é, „, " in Artikeln von Tagesspiegel, WiWo, SZ-Dossier und Capital geprüft, CP1252-Glyph-Tabelle für fehlende Zeichen erweitert, Fallback auf Leerzeichen für nicht darstellbare Unicode-Codepoints implementiert
+
+111. PDF-Dateigröße analysiert und optimiert: Durchschnittsgröße pro 10-Artikel-PDF gemessen (ca. 280 KB), redundante Whitespace-Zeichen im Textstream reduziert, Objekt-Komprimierung mit zlib deflate geprüft — nicht implementiert da PDF 1.4 Kompatibilität erhalten bleiben muss, finale Größe akzeptabel für E-Mail-Anhang
+
+112. Fehlerbehandlung im PDF-Node eingebaut: fehlende Pflichtfelder (title, body leer) abgefangen, Platzhaltertext "Inhalt nicht verfügbar" eingefügt statt Absturz, Testlauf mit absichtlich leerem body-Feld durchgeführt — PDF wird vollständig generiert, Fehler-Artikel deutlich gekennzeichnet
+
+# ── Phase 13 — Volltext-Extraktion get-article (6 Einträge) ──────────────────
+
+113. CSS-Selektor-Strategie für Artikel-Volltext überarbeitet: bestehenden Selektor für div[data-testid="article-body"] auf alle 4 Quellen geprüft, WiWo und Capital verwenden abweichende Klassen-Namen, alternative Selektoren (article p, .article__body p) identifiziert und je Quelle in source-config eingetragen
+
+114. Scroll-basierte Lazy-Loading-Erkennung implementiert: page.evaluate() mit window.scrollBy in 300px-Schritten eingesetzt, nach jedem Scroll-Schritt 500ms gewartet, MutationObserver-Ansatz evaluiert aber verworfen wegen Runner-Subprocess-Einschränkungen, finale Lösung mit 5 Scroll-Schritten + 3000ms Abschluss-Wartezeit validiert
+
+115. Warte-Logik auf vollständig gerenderten Artikel-Container optimiert: setTimeout(3000) nach Navigation durch page.waitForSelector('[data-testid="article-body"]', {timeout: 10000}) ersetzt, Zuverlässigkeit bei langsamer Proxy-Verbindung deutlich verbessert, Fehlerfall "Selector not found" korrekt abgefangen und geloggt
+
+116. Screenshot-basiertes Debugging für Paywall-Analyse eingesetzt: page.screenshot({path: '/tmp/debug.png'}) nach Login und nach Navigation zum Artikel eingefügt, Screenshot per kubectl cp in lokales Verzeichnis kopiert, Paywall-Zustand visuell bestätigt — Login-Session vorhanden aber Inhalts-Div leer, Fingerprint-Problem als Ursache bestätigt
+
+117. Fallback-Extraktion für paywalled Artikel implementiert: bei leerem body-Feld automatisch Teaser-Text als Fallback eingesetzt, Quell-Markierung "(Teaser)" an Feldwert angehängt, LLM-Zusammenfassung trotz fehlendem Volltext getestet — Qualität akzeptabel für Kurzartikel, bei Langartikeln deutlich schlechter
+
+118. Volltext-Extraktion mit allen 4 Quellen verglichen: SZ-Dossier und Capital liefern vollständigen Text ohne Paywall-Problem, WiWo teilweise paywalled (ca. 30% der Artikel), Tagesspiegel weiterhin 0 Zeichen im Kubernetes-Container, Ergebnisse und Source-spezifische Workarounds in node3-scrape-article.js dokumentiert
