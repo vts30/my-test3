@@ -810,3 +810,21 @@ openssl s_client -connect github.webapp.dst.baintern.de:443 -showcerts 2>/dev/nu
   awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/' | \
   awk 'BEGIN{n=0} /BEGIN CERT/{n++; f="/tmp/cert"n".pem"} {print > f} /END CERT/{close(f)}' && \
   for f in /tmp/cert*.pem; do echo "--- $f ---"; openssl x509 -noout -dates -subject -in $f; done
+
+
+  #db debug
+  python -c "
+import socket
+tests = [
+    ('q0010206.dst.baintern.de', 55303),
+    ('q0010206.dst.baintern.de', 55320),
+    ('q0010206.dst.baintern.de', 1433),
+]
+for host, port in tests:
+    try:
+        s = socket.create_connection((host, port), timeout=5)
+        print(f'Port {port} OPEN')
+        s.close()
+    except Exception as e:
+        print(f'Port {port} BLOCKED')
+"
