@@ -75,3 +75,17 @@ kubectl logs deployment/n8n -n preme-n8n -c task-runner --tail=100
 # Step 15 — Check Chromium is in task-runner container (external runner needs it there)
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- which chromium-browser 2>/dev/null || \
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- ls /usr/bin/chrom* 2>/dev/null || echo "Chromium NOT found in task-runner"
+
+# Step 16 — Test Chromium actually launches in task-runner (file exists but wrapper may be broken)
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(StealthPlugin());
+puppeteer.launch({
+  executablePath: '/usr/bin/chromium-browser',
+  args: ['--no-sandbox','--disable-setuid-sandbox','--proxy-server=http://sdst.sbaintern.de:8080']
+}).then(b => { console.log('Chromium OK'); b.close(); }).catch(e => console.log('FAIL: ' + e.message));
+"
+
+# Step 17 — Test proxy from task-runner container (not just from n8n container)
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- curl -x http://sdst.sbaintern.de:8080 -I https://www.tagesspiegel.de --max-time 15
