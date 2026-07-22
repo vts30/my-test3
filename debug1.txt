@@ -1,0 +1,50 @@
+# Debug: get-article timeout after image change
+# Run these in order to find the root cause
+
+# ── Step 1 — Check which image is running ─────────────────────────────────────
+
+kubectl get deployment n8n -n preme-n8n -o jsonpath='{.spec.template.spec.containers[*].image}'
+
+# ── Step 2 — Check env vars still set correctly ───────────────────────────────
+
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- env | grep -E 'RUNNERS|NODE_PATH|PUPPETEER|NODE_FUNCTION'
+
+# ── Step 3 — Check puppeteer modules load ─────────────────────────────────────
+
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- node -e "
+['puppeteer-extra','puppeteer-extra-plugin-stealth','puppeteer-core'].forEach(p => {
+  try { require(p); console.log(p + ' OK'); }
+  catch(e) { console.log(p + ' FAIL: ' + e.message); }
+})"
+
+# ── Step 4 — Check symlinks exist ─────────────────────────────────────────────
+
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- ls -la /home/node/node_modules/ | grep puppeteer
+
+# ── Step 5 — Check Chromium path ──────────────────────────────────────────────
+
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- ls -la /usr/bin/chromium-browser
+
+# ── Step 6 — Check pod logs during workflow run ───────────────────────────────
+
+kubectl logs deployment/n8n -n preme-n8n -c n8n --tail=100 -f
+
+# ── Step 7 — Check runner mode ────────────────────────────────────────────────
+
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- env | grep N8N_RUNNERS_MODE
+
+# ── Step 8 — Test Chromium launches at all ────────────────────────────────────
+
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- node -e "
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(StealthPlugin());
+puppeteer.launch({
+  executablePath: '/usr/bin/chromium-browser',
+  args: ['--no-sandbox','--disable-setuid-sandbox','--proxy-server=http://sdst.sbaintern.de:8080']
+}).then(b => { console.log('Chromium OK'); b.close(); }).catch(e => console.log('FAIL: ' + e.message));
+"
+
+# ── Step 9 — Check proxy reachable ────────────────────────────────────────────
+
+kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- curl -x http://sdst.sbaintern.de:8080 -I https://www.tagesspiegel.de --max-time 15
