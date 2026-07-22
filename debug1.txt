@@ -48,3 +48,30 @@ puppeteer.launch({
 # ── Step 9 — Check proxy reachable ────────────────────────────────────────────
 
 kubectl exec -it deployment/n8n -n preme-n8n -c n8n -- curl -x http://sdst.sbaintern.de:8080 -I https://www.tagesspiegel.de --max-time 15
+
+# ── External Runner specific (n8n runs as external) ───────────────────────────
+
+# Step 10 — Check task-runner container has puppeteer modules
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "
+['puppeteer-extra','puppeteer-extra-plugin-stealth','puppeteer-core'].forEach(p => {
+  try { require(p); console.log(p + ' OK'); }
+  catch(e) { console.log(p + ' FAIL: ' + e.message); }
+})"
+
+# Step 11 — Check NODE_FUNCTION_ALLOW_EXTERNAL in task-runner
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep -E 'NODE_FUNCTION|NODE_PATH'
+
+# Step 12 — Check n8n-task-runners.json allows external modules
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- cat /usr/local/lib/node_modules/n8n/node_modules/@n8n/task-runner/dist/n8n-task-runners.json 2>/dev/null || echo "file not found"
+
+# Step 13 — Check task-runner logs
+kubectl logs deployment/n8n -n preme-n8n -c task-runner --tail=100
+
+# Step 14 — Check USE_NATIVE_SETTER is true in node1 (required for external runner login)
+# page.type() keyboard events have isTrusted: false in external runner
+# Tagesspiegel login form rejects them → email field stays empty → timeout
+# Fix: USE_NATIVE_SETTER = true must be set at top of node1-source-config.js
+
+# Step 15 — Check Chromium is in task-runner container (external runner needs it there)
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- which chromium-browser 2>/dev/null || \
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- ls /usr/bin/chrom* 2>/dev/null || echo "Chromium NOT found in task-runner"
