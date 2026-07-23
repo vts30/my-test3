@@ -83,7 +83,7 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 puppeteer.launch({
   executablePath: '/usr/bin/chromium-browser',
-  args: ['--no-sandbox','--disable-setuid-sandbox','--proxy-server=http://sdst.sbaintern.de:8080']
+  args: ['--no-sandbox','--disable-setuid-sandbox','--proxy-server=http://npm-proxy.webapp.sdst.sbaintern.de:31281']
 }).then(b => { console.log('Chromium OK'); b.close(); }).catch(e => console.log('FAIL: ' + e.message));
 "
 
