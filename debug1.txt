@@ -174,3 +174,28 @@ try {
 }
 
 throw new Error(result);
+
+# Step 27 — Test navigation to background.tagesspiegel.de via proxy (n8n UI Code node)
+# Chromium launches OK (Step 26 passed) — now check if navigation/proxy is the bottleneck
+const puppeteer = require('puppeteer-extra');
+const Stealth = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(Stealth());
+
+let result;
+try {
+  const browser = await puppeteer.launch({
+    executablePath: '/usr/lib/chromium/chromium',
+    args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--no-zygote',
+           '--proxy-server=http://proxy.idst.ibaintern.de:8080'],
+    headless: true
+  });
+  const page = await browser.newPage();
+  await page.goto('https://background.tagesspiegel.de', { waitUntil: 'domcontentloaded', timeout: 30000 });
+  const title = await page.evaluate(() => document.title);
+  await browser.close();
+  result = 'OK: ' + title;
+} catch(e) {
+  result = 'FAIL: ' + e.message;
+}
+
+throw new Error(result);
