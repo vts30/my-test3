@@ -106,7 +106,13 @@ req.setTimeout(10000, () => { console.log('TIMEOUT'); req.destroy(); });
 req.end();
 "
 
-# Step 19 — Test navigation through proxy.idst.ibaintern.de:8080 from task-runner
+# Step 19 — Check task-runner memory limits (OOM kills Chromium if too low)
+kubectl get deployment n8n -n preme-n8n -o jsonpath='{.spec.template.spec.containers[?(@.name=="task-runner")].resources}'
+
+# Step 20 — Check N8N_RUNNERS_MAX_OLD_SPACE_SIZE (should be 2000+)
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep MAX_OLD_SPACE
+
+# Step 21 — Test navigation through proxy.idst.ibaintern.de:8080 from task-runner
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
