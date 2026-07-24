@@ -1,6 +1,5 @@
 // Stage 1 — Test login only (paste as Code node in n8n UI)
-// Use real credentials — replace YOUR_EMAIL and YOUR_PASSWORD
-// Avoids waitForNavigation (no timeout crashes), uses setTimeout delay instead
+// Uses Promise.race + setTimeout instead of puppeteer timeout (avoids runner crash)
 
 const puppeteer = require('puppeteer-extra');
 const Stealth = require('puppeteer-extra-plugin-stealth');
@@ -8,6 +7,10 @@ puppeteer.use(Stealth());
 
 const EMAIL = 'YOUR_EMAIL';
 const PASSWORD = 'YOUR_PASSWORD';
+
+const timeout = (ms, msg) => new Promise((_, reject) =>
+  setTimeout(() => reject(new Error(msg)), ms)
+);
 
 const browser = await puppeteer.launch({
   executablePath: '/usr/lib/chromium/chromium',
@@ -21,7 +24,10 @@ try {
   page.setDefaultNavigationTimeout(0);
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
 
-  await page.goto('https://background.tagesspiegel.de/login', { waitUntil: 'domcontentloaded' });
+  await Promise.race([
+    page.goto('https://background.tagesspiegel.de/login', { waitUntil: 'domcontentloaded' }),
+    timeout(20000, 'HUNG at page.goto login')
+  ]);
   await new Promise(r => setTimeout(r, 3000));
 
   await page.evaluate(`(function() {
@@ -41,7 +47,7 @@ try {
   })()`);
 
   await page.click('button[type=submit]');
-  await new Promise(r => setTimeout(r, 8000)); // wait 8s for redirect
+  await new Promise(r => setTimeout(r, 8000));
 
   throw new Error('URL after login: ' + page.url());
 } finally {
