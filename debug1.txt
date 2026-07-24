@@ -176,6 +176,10 @@ try {
 throw new Error(result);
 
 # Step 27 — Test navigation to background.tagesspiegel.de via proxy (n8n UI Code node)
+# Result: FAIL: ERR_CERT_AUTHORITY_INVALID — proxy does SSL inspection, Chromium rejects corporate CA cert
+# Fix: add --ignore-certificate-errors + ignoreHTTPSErrors: true (already in node2) → test in Step 28
+
+# Step 27 original snippet:
 # Chromium launches OK (Step 26 passed) — now check if navigation/proxy is the bottleneck
 const puppeteer = require('puppeteer-extra');
 const Stealth = require('puppeteer-extra-plugin-stealth');
@@ -199,3 +203,30 @@ try {
 }
 
 throw new Error(result);
+
+# Step 28 — Retry navigation with --ignore-certificate-errors + ignoreHTTPSErrors (n8n UI Code node)
+# Proxy works but SSL inspection causes ERR_CERT_AUTHORITY_INVALID — these flags bypass it
+const puppeteer = require('puppeteer-extra');
+const Stealth = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(Stealth());
+
+let result28;
+try {
+  const browser = await puppeteer.launch({
+    executablePath: '/usr/lib/chromium/chromium',
+    args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--no-zygote',
+           '--ignore-certificate-errors',
+           '--proxy-server=http://proxy.idst.ibaintern.de:8080'],
+    headless: true,
+    ignoreHTTPSErrors: true
+  });
+  const page = await browser.newPage();
+  await page.goto('https://background.tagesspiegel.de', { waitUntil: 'domcontentloaded', timeout: 30000 });
+  const title = await page.evaluate(() => document.title);
+  await browser.close();
+  result28 = 'OK: ' + title;
+} catch(e) {
+  result28 = 'FAIL: ' + e.message;
+}
+
+throw new Error(result28);
