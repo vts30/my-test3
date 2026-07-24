@@ -155,3 +155,22 @@ puppeteer.launch({
 
 # Step 25 — Check if chromium binary responds at all
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- /usr/bin/chromium-browser --version
+
+# Step 26 — Test puppeteer.launch() in n8n UI (Code node) — console.log does NOT work in external runner
+# Paste into a Code node and run; result appears as error message in UI
+const puppeteer = require('puppeteer-extra');
+
+let result;
+try {
+  const browser = await puppeteer.launch({
+    executablePath: '/usr/lib/chromium/chromium',
+    args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--no-zygote'],
+    timeout: 15000
+  });
+  await browser.close();
+  result = 'OK';
+} catch(e) {
+  result = 'FAIL: ' + e.message;
+}
+
+throw new Error(result);
