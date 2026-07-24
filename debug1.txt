@@ -560,3 +560,20 @@ kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep MAX_OL
 // Proper fix: upgrade puppeteer-core to a version compatible with Node.js v24
 // Check current version:
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "console.log(require('/install/node_modules/puppeteer-core/package.json').version)"
+// Result: 24.6.0
+//
+// puppeteer-core 24.6.0 bug: TimeoutError.message is non-writable
+// rewriteError() in ErrorLike.js:29 tries error.message = message → TypeError in Node.js v24 strict mode
+// Runner process exits with status 1 → WebSocket disconnects → "Node execution failed"
+//
+// Fix without rebuilding (in n8n UI company code):
+// 1. Change: page.setDefaultNavigationTimeout(30000)
+//    To:     page.setDefaultNavigationTimeout(0)     ← no timeout, rewriteError never called
+//
+// 2. For wiwo: change waitForSelector timeout from 10000 to 0
+//    From: await page.waitForSelector('app-default-teaser', { timeout: 10000 });
+//    To:   await page.waitForSelector('app-default-teaser', { timeout: 0 });
+//
+// With timeout: 0 everywhere, puppeteer never fires Timeout._onTimeout
+// → rewriteError() never called → runner stays alive
+// Hangs (if any) are handled by the 600s task runner timeout (N8N_RUNNERS_TASK_TIMEOUT=600)
