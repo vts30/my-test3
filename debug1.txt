@@ -288,3 +288,59 @@ try {
 }
 
 throw new Error(result30);
+# Result: OK status=200 url=https://background.tagesspiegel.de/ — navigation works, proxy + SSL bypass OK
+
+# Step 31 — Test login flow (n8n UI Code node) — replace EMAIL and PASSWORD with real credentials
+# Checks if login succeeds and what URL we land on after submit
+const puppeteer = require('puppeteer-extra');
+const Stealth = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(Stealth());
+
+const EMAIL = 'YOUR_EMAIL';
+const PASSWORD = 'YOUR_PASSWORD';
+
+let result31;
+try {
+  const browser = await puppeteer.launch({
+    executablePath: '/usr/lib/chromium/chromium',
+    args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--no-zygote',
+           '--ignore-certificate-errors',
+           '--proxy-server=http://proxy.idst.ibaintern.de:8080'],
+    headless: true,
+    ignoreHTTPSErrors: true
+  });
+  const page = await browser.newPage();
+  await page.goto('https://background.tagesspiegel.de', { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+  // Fill email using native setter (required for external runner — page.type is untrusted)
+  await page.evaluate((val) => {
+    const input = document.querySelector('input[type=email]');
+    if (!input) throw new Error('email input not found');
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeSetter.call(input, val);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }, EMAIL);
+
+  await page.evaluate((val) => {
+    const input = document.querySelector('input[type=password]');
+    if (!input) throw new Error('password input not found');
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeSetter.call(input, val);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }, PASSWORD);
+
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+    page.click('button[type=submit]'),
+  ]);
+
+  const urlAfterLogin = page.url();
+  await browser.close();
+  result31 = 'OK after-login url=' + urlAfterLogin;
+} catch(e) {
+  result31 = 'FAIL: ' + e.message;
+}
+
+throw new Error(result31);
