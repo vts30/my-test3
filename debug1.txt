@@ -400,3 +400,59 @@ try {
 }
 
 throw new Error(result32);
+# Result: Task execution timed out after 60 seconds
+# String evaluate worked (no serialization error) ✓
+# waitForNavigation hung because placeholder credentials used OR login didn't redirect
+# browser.close() was missing from catch block → browser kept task alive until 60s limit
+
+# Step 33 — Same as Step 32 but with browser.close() in catch + use real credentials
+# Replace EMAIL and PASSWORD with real credentials before running
+const puppeteer = require('puppeteer-extra');
+const Stealth = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(Stealth());
+
+const EMAIL = 'YOUR_EMAIL';
+const PASSWORD = 'YOUR_PASSWORD';
+
+let result33;
+const browser33 = await puppeteer.launch({
+  executablePath: '/usr/lib/chromium/chromium',
+  args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--no-zygote',
+         '--ignore-certificate-errors',
+         '--proxy-server=http://proxy.idst.ibaintern.de:8080'],
+  headless: true,
+  ignoreHTTPSErrors: true
+});
+try {
+  const page = await browser33.newPage();
+  await page.goto('https://background.tagesspiegel.de', { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+  await page.evaluate(`(function() {
+    var input = document.querySelector('input[type=email]');
+    var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeSetter.call(input, '${EMAIL.replace(/'/g, "\\'")}');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+
+  await page.evaluate(`(function() {
+    var input = document.querySelector('input[type=password]');
+    var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeSetter.call(input, '${PASSWORD.replace(/'/g, "\\'")}');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+    page.click('button[type=submit]'),
+  ]);
+
+  result33 = 'OK after-login url=' + page.url();
+} catch(e) {
+  result33 = 'FAIL: ' + e.message;
+} finally {
+  await browser33.close();
+}
+
+throw new Error(result33);
