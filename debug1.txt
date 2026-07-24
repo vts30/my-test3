@@ -540,3 +540,23 @@ kubectl get deployment n8n -n preme-n8n -o jsonpath='{.spec.template.spec.contai
 
 // Check if N8N_RUNNERS_MAX_OLD_SPACE_SIZE is set on task-runner
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep MAX_OLD_SPACE
+
+// ── Step 36 — ROOT CAUSE: Node.js v24 + puppeteer-core incompatibility ───────
+// Task-runner logs show:
+//   TypeError: Cannot assign to read only property 'message' of object 'Error'
+//   at rewriteError (/install/node_modules/puppeteer-core/lib/cjs/puppeteer/util/ErrorLike.js:29)
+//   at Timeout._onTimeout (CallbackRegistry.js:110)
+//   Node.js v24.13.1
+//   Runner process exited with error: exit status 1
+//
+// New task-runner image uses Node.js v24.13.1
+// In Node.js v24, error.message is read-only — puppeteer-core's rewriteError() crashes the runner
+// This fires whenever ANY puppeteer timeout triggers (e.g. setDefaultNavigationTimeout(30000))
+//
+// Immediate fix in n8n UI:
+//   Change page.setDefaultNavigationTimeout(30000) back to page.setDefaultNavigationTimeout(0)
+//   With no timeout, rewriteError() is never called → runner does not crash
+//
+// Proper fix: upgrade puppeteer-core to a version compatible with Node.js v24
+// Check current version:
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "console.log(require('/install/node_modules/puppeteer-core/package.json').version)"
