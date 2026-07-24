@@ -260,3 +260,31 @@ try {
 }
 
 throw new Error(result29);
+# Result: same — page.title() also uses evaluate() internally, same serialization error
+
+# Step 30 — Check navigation using response.status() and page.url() — no evaluate() needed
+const puppeteer = require('puppeteer-extra');
+const Stealth = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(Stealth());
+
+let result30;
+try {
+  const browser = await puppeteer.launch({
+    executablePath: '/usr/lib/chromium/chromium',
+    args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--no-zygote',
+           '--ignore-certificate-errors',
+           '--proxy-server=http://proxy.idst.ibaintern.de:8080'],
+    headless: true,
+    ignoreHTTPSErrors: true
+  });
+  const page = await browser.newPage();
+  const response = await page.goto('https://background.tagesspiegel.de', { waitUntil: 'domcontentloaded', timeout: 30000 });
+  const status = response ? response.status() : 'no-response';
+  const url = page.url();
+  await browser.close();
+  result30 = 'OK status=' + status + ' url=' + url;
+} catch(e) {
+  result30 = 'FAIL: ' + e.message;
+}
+
+throw new Error(result30);
