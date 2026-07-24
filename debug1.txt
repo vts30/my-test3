@@ -230,3 +230,33 @@ try {
 }
 
 throw new Error(result28);
+# Result: FAIL: Passed function cannot be serialized! — but this is from page.evaluate() at line 17
+# page.goto() SUCCEEDED — navigation to background.tagesspiegel.de works with SSL bypass flags
+# Fix: use page.title() instead of page.evaluate(() => document.title)
+
+# Step 29 — Confirm navigation OK using page.title() + test login form loads (n8n UI Code node)
+const puppeteer = require('puppeteer-extra');
+const Stealth = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(Stealth());
+
+let result29;
+try {
+  const browser = await puppeteer.launch({
+    executablePath: '/usr/lib/chromium/chromium',
+    args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--no-zygote',
+           '--ignore-certificate-errors',
+           '--proxy-server=http://proxy.idst.ibaintern.de:8080'],
+    headless: true,
+    ignoreHTTPSErrors: true
+  });
+  const page = await browser.newPage();
+  await page.goto('https://background.tagesspiegel.de', { waitUntil: 'domcontentloaded', timeout: 30000 });
+  const title = await page.title();
+  const url = page.url();
+  await browser.close();
+  result29 = 'OK title=' + title + ' url=' + url;
+} catch(e) {
+  result29 = 'FAIL: ' + e.message;
+}
+
+throw new Error(result29);
