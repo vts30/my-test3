@@ -505,3 +505,24 @@ await page.evaluate(`(function() {
 
 // Everything else (acceptConsent, $$eval, article scraping) stays unchanged.
 // Those evaluate() calls have no extra args so they serialize correctly.
+
+// ── Step 34 — Fix task-runner timing out after 60 seconds ────────────────────
+// N8N_RUNNERS_TASK_TIMEOUT=600 is set on n8n container but task-runner container
+// has no value → defaults to 60s in n8n 2.9.1
+// Fix: add N8N_RUNNERS_TASK_TIMEOUT=600 to task-runner container
+
+kubectl patch deployment n8n -n preme-n8n --type=json -p='[
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/1/env/-",
+    "value": {
+      "name": "N8N_RUNNERS_TASK_TIMEOUT",
+      "value": "600"
+    }
+  }
+]'
+
+// Restart and verify
+kubectl rollout restart deployment/n8n -n preme-n8n
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep TASK_TIMEOUT
+// Expected: N8N_RUNNERS_TASK_TIMEOUT=600
