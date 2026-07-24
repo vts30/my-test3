@@ -142,3 +142,16 @@ puppeteer.launch({
 
 # Step 23 — Find actual chromium binary path in task-runner
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- find /usr -name "chromium" -type f 2>/dev/null
+
+# Step 24 — Test Chromium launch with --no-zygote --single-process and 10s timeout
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "
+const puppeteer = require('puppeteer-extra');
+puppeteer.launch({
+  executablePath: '/usr/bin/chromium-browser',
+  args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--no-zygote','--single-process'],
+  timeout: 10000
+}).then(b => { console.log('OK'); b.close(); }).catch(e => console.log('FAIL: ' + e.message));
+"
+
+# Step 25 — Check if chromium binary responds at all
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- /usr/bin/chromium-browser --version
