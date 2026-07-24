@@ -526,3 +526,17 @@ kubectl patch deployment n8n -n preme-n8n --type=json -p='[
 kubectl rollout restart deployment/n8n -n preme-n8n
 kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep TASK_TIMEOUT
 // Expected: N8N_RUNNERS_TASK_TIMEOUT=600
+
+// ── Step 35 — Task runner disconnected (WebSocket closed) during execution ────
+// Error: DefaultTaskRunnerDisconnectAnalyzer.toDisconnectError
+// Task runner process crashed mid-execution — likely OOM (out of memory) kill by Kubernetes
+// Chromium is memory-hungry; if task-runner hits memory limit it gets killed
+
+// Check if task-runner was OOM killed
+kubectl describe pod -n preme-n8n $(kubectl get pod -n preme-n8n -l app=n8n -o jsonpath='{.items[0].metadata.name}') | grep -A5 -i "OOM\|killed\|reason\|task-runner"
+
+// Check current memory limit on task-runner container
+kubectl get deployment n8n -n preme-n8n -o jsonpath='{.spec.template.spec.containers[?(@.name=="task-runner")].resources}'
+
+// Check if N8N_RUNNERS_MAX_OLD_SPACE_SIZE is set on task-runner
+kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep MAX_OLD_SPACE
