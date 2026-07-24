@@ -456,3 +456,14 @@ try {
 }
 
 throw new Error(result33);
+# Result: Task execution timed out after 60 seconds
+# Standalone Code node test has a fixed 60s limit — cannot be bypassed from test node
+# Full workflow uses N8N_RUNNERS_TASK_TIMEOUT=600 (10 min) — enough time
+#
+# All debug tests passed:
+#   Step 26: Chromium launches OK ✓
+#   Step 30: Navigation to background.tagesspiegel.de → 200 OK ✓
+#   Step 32: String-based page.evaluate() works (no serialization error) ✓
+#   node2-get-articles.js: useNativeSetter block fixed (string expressions, not fn+arg) ✓
+#
+# Next: paste fixed node2-get-articles.js into n8n UI and run the full workflow
