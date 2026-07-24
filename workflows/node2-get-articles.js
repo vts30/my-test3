@@ -61,21 +61,21 @@ try {
     await acceptConsent(page);
 
     if (useNativeSetter) {
-      // External runner: use native value setter (page.type keyboard events are untrusted)
-      await page.evaluate((val) => {
-        const input = document.querySelector('input[type=email]');
-        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-        nativeSetter.call(input, val);
+      // External runner: use string expression — page.evaluate(fn, arg) can't serialize in n8n 2.9.1+
+      await page.evaluate(`(function() {
+        var input = document.querySelector('input[type=email]');
+        var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        nativeSetter.call(input, '${email.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}');
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.dispatchEvent(new Event('change', { bubbles: true }));
-      }, email);
-      await page.evaluate((val) => {
-        const input = document.querySelector('input[type=password]');
-        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-        nativeSetter.call(input, val);
+      })()`);
+      await page.evaluate(`(function() {
+        var input = document.querySelector('input[type=password]');
+        var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        nativeSetter.call(input, '${password.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}');
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.dispatchEvent(new Event('change', { bubbles: true }));
-      }, password);
+      })()`);
     } else {
       // Internal runner: standard page.type works
       await page.click('input[type=email]');

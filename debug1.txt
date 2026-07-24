@@ -344,3 +344,59 @@ try {
 }
 
 throw new Error(result31);
+# Result: FAIL: Passed function cannot be serialized! — page.evaluate(fn, arg) broken in n8n 2.9.1 external runner
+# Fix: pass a string expression to page.evaluate() instead of a function — no serialization needed
+
+# Step 32 — Test login using string expression in page.evaluate (n8n UI Code node)
+# Replace EMAIL and PASSWORD with real credentials
+const puppeteer = require('puppeteer-extra');
+const Stealth = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(Stealth());
+
+const EMAIL = 'YOUR_EMAIL';
+const PASSWORD = 'YOUR_PASSWORD';
+
+let result32;
+try {
+  const browser = await puppeteer.launch({
+    executablePath: '/usr/lib/chromium/chromium',
+    args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--no-zygote',
+           '--ignore-certificate-errors',
+           '--proxy-server=http://proxy.idst.ibaintern.de:8080'],
+    headless: true,
+    ignoreHTTPSErrors: true
+  });
+  const page = await browser.newPage();
+  await page.goto('https://background.tagesspiegel.de', { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+  // String expression — avoids function serialization issue in n8n 2.9.1 external runner
+  await page.evaluate(`(function() {
+    var input = document.querySelector('input[type=email]');
+    if (!input) throw new Error('email input not found');
+    var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeSetter.call(input, '${EMAIL.replace(/'/g, "\\'")}');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+
+  await page.evaluate(`(function() {
+    var input = document.querySelector('input[type=password]');
+    if (!input) throw new Error('password input not found');
+    var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeSetter.call(input, '${PASSWORD.replace(/'/g, "\\'")}');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+    page.click('button[type=submit]'),
+  ]);
+
+  result32 = 'OK after-login url=' + page.url();
+  await browser.close();
+} catch(e) {
+  result32 = 'FAIL: ' + e.message;
+}
+
+throw new Error(result32);
