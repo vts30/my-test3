@@ -3,8 +3,7 @@
 // Verify: kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep TASK_TIMEOUT
 
 // n8n Code Node — Full login + article list + content debug
-// Uses CDP executionContextCreated event to wait for page to have JS context
-// instead of a fixed wait — works regardless of how slow the proxy is
+// Tracks executionContextId explicitly + auto-retries cdpEval
 
 const puppeteer = require('puppeteer-extra');
 const Stealth = require('puppeteer-extra-plugin-stealth');
@@ -46,28 +45,48 @@ const main = async () => {
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
   const cdp = await page.createCDPSession();
 
-  // Track when page gets a JS execution context
+  // Track the latest valid default execution context ID
+  let contextId = null;
   let contextReady = false;
   await cdp.send('Runtime.enable');
-  cdp.on('Runtime.executionContextCreated', () => { contextReady = true; });
+  cdp.on('Runtime.executionContextCreated', (evt) => {
+    // Only track default top-level contexts, not iframes
+    if (evt.context.auxData && evt.context.auxData.isDefault) {
+      contextId = evt.context.id;
+      contextReady = true;
+    }
+  });
+  cdp.on('Runtime.executionContextDestroyed', (evt) => {
+    if (evt.executionContextId === contextId) {
+      contextId = null;
+      contextReady = false;
+    }
+  });
 
-  // CDP helper: send command with 2s timeout so it never hangs
-  const cdpSend = (method, params) => Promise.race([
-    cdp.send(method, params || {}).catch(e => ({ _error: e.message })),
-    wait(2000).then(() => ({ _timeout: true }))
-  ]);
-
-  // CDP evaluate: bypasses puppeteer's navigation-blocking check
+  // CDP evaluate with explicit contextId + auto-retry (3 attempts, 5s each)
   const cdpEval = async (expr) => {
-    const res = await cdpSend('Runtime.evaluate', { expression: expr, returnByValue: true });
-    if (res._timeout) throw new Error('cdpEval timed out — no execution context yet');
-    if (res.exceptionDetails) throw new Error(res.exceptionDetails.exception?.description || res.exceptionDetails.text || 'eval exception');
-    return res.result ? res.result.value : undefined;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const params = { expression: expr, returnByValue: true };
+      if (contextId) params.contextId = contextId;
+      const res = await Promise.race([
+        cdp.send('Runtime.evaluate', params).catch(e => ({ _error: e.message })),
+        wait(5000).then(() => ({ _timeout: true }))
+      ]);
+      if (res._timeout || res._error) {
+        if (attempt < 2) { await wait(500); continue; }
+        const reason = res._timeout ? 'timeout after 5s' : res._error;
+        throw new Error(`cdpEval failed (attempt ${attempt+1}): ${reason}`);
+      }
+      if (res.exceptionDetails) {
+        throw new Error(res.exceptionDetails.exception?.description || res.exceptionDetails.text || 'eval exception');
+      }
+      return res.result ? res.result.value : undefined;
+    }
   };
 
-  // Navigate and wait until JS context is ready (fires as soon as first HTML arrives)
-  // No Page.stopLoading — cdpEval works fine with navigation still in progress
+  // Navigate and wait until default JS context is ready
   const gotoAndWaitContext = async (url, maxMs, label) => {
+    contextId = null;
     contextReady = false;
     page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
     const start = Date.now();
@@ -77,21 +96,23 @@ const main = async () => {
     }
     const elapsed = Date.now() - start;
     if (!contextReady) throw new Error(`${label}: no JS context after ${elapsed}ms — proxy not delivering content`);
-    currentStep = label + ` [context ready in ${elapsed}ms] url=` + page.url();
+    currentStep = label + ` [context in ${elapsed}ms] url=` + page.url();
   };
 
   // ── Login ──────────────────────────────────────────────────────────────────
   await gotoAndWaitContext('https://background.tagesspiegel.de/login', 30000, 'login page');
 
-  // Poll until email input appears in DOM (context fires early, before form renders)
+  // Poll until email input appears (context fires before form JS renders)
   currentStep = 'waiting for email input';
   let emailReady = false;
   for (let i = 0; i < 20; i++) {
-    const found = await cdpEval(`!!(document.querySelector('input[type=email]') || document.querySelector('input[name=email]'))`);
-    if (found) { emailReady = true; break; }
+    try {
+      const found = await cdpEval(`!!(document.querySelector('input[type=email]') || document.querySelector('input[name=email]'))`);
+      if (found) { emailReady = true; break; }
+    } catch(e) { /* context may still be initialising */ }
     await wait(500);
   }
-  if (!emailReady) throw new Error('email input not found after 10s');
+  if (!emailReady) throw new Error('email input not found after 10s — page url=' + page.url());
 
   currentStep = 'fill email';
   await cdpEval(`(function() {
@@ -120,7 +141,7 @@ const main = async () => {
     btn.click();
   })()`);
 
-  // Wait for post-submit navigation (don't call goto — just wait for context of redirect page)
+  // Wait for post-submit redirect — just listen for new context, no extra goto
   currentStep = 'post-login redirect [waiting for context]';
   const redirectStart = Date.now();
   while (!contextReady && Date.now() - redirectStart < 25000) {
@@ -133,9 +154,7 @@ const main = async () => {
   await gotoAndWaitContext(LIST_URL, 15000, 'list page');
 
   currentStep = 'count articles';
-  const articleCount = await cdpEval(`(function() {
-    return document.querySelectorAll('div.ts-article-tile').length;
-  })()`);
+  const articleCount = await cdpEval(`document.querySelectorAll('div.ts-article-tile').length`);
   currentStep = 'articles found=' + articleCount;
 
   const firstUrl = await cdpEval(`(function() {
