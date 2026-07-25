@@ -1,266 +1,239 @@
+// n8n Code Node — Single-file robust Puppeteer script with Proxy support
+// Bypasses internal timeouts (Puppeteer 24.x fix) while handling proxy auth.
+
 const puppeteer = require('puppeteer-extra');
 const Stealth = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(Stealth());
 
+// CONFIGURATION
 const EMAIL = 'YOUR_EMAIL';
 const PASSWORD = 'YOUR_PASSWORD';
+const TARGET_URL = 'https://background.tagesspiegel.de/login';
+const DEFAULT_STEP_TIMEOUT = 20000; // 20s hard cap per step
 
-const wait = ms => new Promise(r => setTimeout(r, ms));
+// PROXY CONFIGURATION
+const USE_PROXY = true;
+const PROXY_SERVER = 'http://proxy.idst.ibaintern.de:8080'; // e.g. http://123.45.67.89:8080
+const PROXY_USER = ''; // Leave empty if proxy doesn't require auth
+const PROXY_PASS = '';
 
-const trace = [];
+// UTILITIES
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function log(msg) {
-    trace.push(`[${new Date().toISOString()}] ${msg}`);
-}
+const raceTimeout = (promise, ms, stepName) =>
+  Promise.race([
+    promise,
+    wait(ms).then(() => {
+      throw new Error(`TIMEOUT: [${stepName}] exceeded ${ms}ms limit`);
+    }),
+  ]);
 
-async function step(name, fn) {
-    log(`START: ${name}`);
+// CUSTOM DOM POLLING (Bypasses Puppeteer's internal timeouts)
+const waitForElement = async (page, selector, timeoutMs = 15000) => {
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeoutMs) {
+    const found = await page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return false;
+      const style = window.getComputedStyle(el);
+      return style && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+    }, selector);
 
-    try {
-        const result = await Promise.race([
-            fn(),
-            wait(30000).then(() => {
-                throw new Error(`Timeout during "${name}"`);
-            })
-        ]);
+    if (found) return true;
+    await wait(300);
+  }
+  throw new Error(`Element [${selector}] not found or not visible within ${timeoutMs}ms`);
+};
 
-        log(`DONE: ${name}`);
-        return result;
+// CUSTOM DOM SETTER
+const setInputValue = async (page, selector, value) => {
+  return page.evaluate(
+    ({ sel, val }) => {
+      const input = document.querySelector(sel);
+      if (!input) throw new Error(`Input element not found: ${sel}`);
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      if (setter) {
+        setter.call(input, val);
+      } else {
+        input.value = val;
+      }
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+    { sel: selector, val: value }
+  );
+};
 
-    } catch (err) {
-        log(`FAILED: ${name}`);
-        log(err.stack || err.message);
-        throw err;
-    }
-}
+// CUSTOM DOM CLICKER
+const clickElement = async (page, selector) => {
+  return page.evaluate((sel) => {
+    const el = document.querySelector(sel);
+    if (!el) throw new Error(`Click target not found: ${sel}`);
+    el.click();
+  }, selector);
+};
 
-let browser;
-let page;
+// DIAGNOSTIC DUMP ON FAILURE
+const dumpDiagnostics = async (page, currentStep, lastError) => {
+  const diagnostics = {
+    failedStep: currentStep,
+    errorMessage: lastError?.message || String(lastError),
+    url: 'N/A',
+    title: 'N/A',
+    cookies: [],
+    visibleTextSample: 'N/A',
+    htmlSnippet: 'N/A',
+    screenshotBase64: 'N/A',
+  };
+
+  if (!page) return diagnostics;
+
+  try { diagnostics.url = page.url(); } catch (_) {}
+  try { diagnostics.title = await page.title(); } catch (_) {}
+  try { diagnostics.cookies = await page.cookies(); } catch (_) {}
+  try {
+    diagnostics.visibleTextSample = await page.evaluate(() => document.body?.innerText?.slice(0, 500) || '');
+  } catch (_) {}
+  try {
+    diagnostics.htmlSnippet = await page.evaluate(() => document.documentElement?.outerHTML?.slice(0, 1000) || '');
+  } catch (_) {}
+  try {
+    const buffer = await page.screenshot({ encoding: 'base64', fullPage: false });
+    diagnostics.screenshotBase64 = `data:image/png;base64,${buffer}`;
+  } catch (_) {}
+
+  return diagnostics;
+};
+
+// MAIN WORKFLOW EXECUTION
+let browser = null;
+let page = null;
+let currentStep = 'Initialization';
+
+const logs = {
+  console: [],
+  networkRequests: [],
+  redirectChain: [],
+};
 
 try {
+  currentStep = 'Launch Browser';
 
-    log("Launching browser");
+  const launchArgs = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--ignore-certificate-errors',
+  ];
 
-    browser = await puppeteer.launch({
-        executablePath: '/usr/lib/chromium/chromium',
-        headless: true,
-        ignoreHTTPSErrors: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--ignore-certificate-errors',
-            '--proxy-server=http://proxy.idst.ibaintern.de:8080'
-        ]
+  if (USE_PROXY && PROXY_SERVER) {
+    launchArgs.push(`--proxy-server=${PROXY_SERVER}`);
+  }
+
+  browser = await raceTimeout(
+    puppeteer.launch({
+      executablePath: '/usr/lib/chromium/chromium',
+      args: launchArgs,
+      headless: true,
+      ignoreHTTPSErrors: true,
+    }),
+    15000,
+    currentStep
+  );
+
+  currentStep = 'Create Page & Disable Internal Timeouts';
+  page = await browser.newPage();
+
+  // Disable native Puppeteer internal timeouts completely
+  page.setDefaultTimeout(0);
+  page.setDefaultNavigationTimeout(0);
+
+  // Authenticate Proxy if credentials are specified
+  if (USE_PROXY && PROXY_USER) {
+    await page.authenticate({
+      username: PROXY_USER,
+      password: PROXY_PASS,
     });
+  }
 
-    log(await browser.version());
+  // Attach diagnostic listeners
+  page.on('console', (msg) => logs.console.push(`[${msg.type()}] ${msg.text()}`));
+  page.on('request', (req) => {
+    if (req.isNavigationRequest()) logs.redirectChain.push(req.url());
+    logs.networkRequests.push(`[${req.method()}] ${req.url()}`);
+  });
 
-    page = await browser.newPage();
+  await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
 
-    page.setDefaultNavigationTimeout(30000);
-    page.setDefaultTimeout(30000);
+  currentStep = `Navigate to ${TARGET_URL}`;
+  await raceTimeout(
+    page.goto(TARGET_URL, { waitUntil: 'domcontentloaded', timeout: 0 }),
+    DEFAULT_STEP_TIMEOUT,
+    currentStep
+  );
 
-    await page.setExtraHTTPHeaders({
-        'Accept-Language': 'de-DE,de;q=0.9'
-    });
+  currentStep = 'Wait for Email Field in DOM';
+  await raceTimeout(
+    waitForElement(page, 'input[type=email], input[name=email]', 15000),
+    DEFAULT_STEP_TIMEOUT,
+    currentStep
+  );
 
-    //
-    // Browser event logging
-    //
-    page.on('console', msg => {
-        log(`[console:${msg.type()}] ${msg.text()}`);
-    });
+  currentStep = 'Set Email Value';
+  await raceTimeout(
+    setInputValue(page, 'input[type=email], input[name=email]', EMAIL),
+    DEFAULT_STEP_TIMEOUT,
+    currentStep
+  );
 
-    page.on('pageerror', err => {
-        log(`[pageerror] ${err.message}`);
-    });
+  currentStep = 'Wait for Password Field in DOM';
+  await raceTimeout(
+    waitForElement(page, 'input[type=password]', 15000),
+    DEFAULT_STEP_TIMEOUT,
+    currentStep
+  );
 
-    page.on('requestfailed', req => {
-        const f = req.failure();
-        log(`[requestfailed] ${req.url()} :: ${f ? f.errorText : ''}`);
-    });
+  currentStep = 'Set Password Value';
+  await raceTimeout(
+    setInputValue(page, 'input[type=password]', PASSWORD),
+    DEFAULT_STEP_TIMEOUT,
+    currentStep
+  );
 
-    page.on('response', res => {
-        if (res.status() >= 400) {
-            log(`[HTTP ${res.status()}] ${res.url()}`);
-        }
-    });
+  currentStep = 'Click Submit Button';
+  await raceTimeout(
+    clickElement(page, 'button[type=submit]'),
+    DEFAULT_STEP_TIMEOUT,
+    currentStep
+  );
 
-    async function dump(label) {
+  currentStep = 'Post-submit settle delay';
+  await wait(5000);
 
-        log(`===== ${label} =====`);
+  const finalUrl = page.url();
+  const finalTitle = await page.title();
 
-        log("URL: " + page.url());
+  // Return success report
+  throw new Error(JSON.stringify({
+    status: 'SUCCESS',
+    finalUrl,
+    finalTitle,
+    logs,
+  }, null, 2));
 
-        try {
-            log("Title: " + await page.title());
-        } catch(e){}
+} catch (err) {
+  // Catch deliberate final exit throw vs step failures
+  if (err.message.includes('"status": "SUCCESS"')) {
+    throw err;
+  }
 
-        try {
-            const text = await page.evaluate(() => {
-                return document.body.innerText.substring(0,3000);
-            });
+  const diagnostics = await dumpDiagnostics(page, currentStep, err);
+  if (browser) await browser.close().catch(() => {});
 
-            log("TEXT:\n" + text);
-
-        } catch(e) {
-            log("Cannot read page text");
-        }
-
-    }
-
-    //
-    // Test connectivity
-    //
-    await step("Open example.com", async () => {
-
-        await page.goto(
-            "https://example.com",
-            {waitUntil:"domcontentloaded"}
-        );
-
-    });
-
-    await dump("example.com");
-
-    //
-    // Open login page
-    //
-    await step("Open Tagesspiegel Login", async () => {
-
-        await page.goto(
-            "https://background.tagesspiegel.de/login",
-            {
-                waitUntil:"domcontentloaded"
-            }
-        );
-
-    });
-
-    await dump("Login page");
-
-    //
-    // Wait for email field
-    //
-    await step("Wait email input", async () => {
-
-        await page.waitForSelector(
-            'input[type=email]',
-            {visible:true}
-        );
-
-    });
-
-    //
-    // Type email
-    //
-    await step("Type email", async () => {
-
-        await page.type(
-            'input[type=email]',
-            EMAIL,
-            {delay:30}
-        );
-
-    });
-
-    //
-    // Wait password
-    //
-    await step("Wait password input", async () => {
-
-        await page.waitForSelector(
-            'input[type=password]',
-            {visible:true}
-        );
-
-    });
-
-    //
-    // Type password
-    //
-    await step("Type password", async () => {
-
-        await page.type(
-            'input[type=password]',
-            PASSWORD,
-            {delay:30}
-        );
-
-    });
-
-    //
-    // Click submit
-    //
-    await step("Click submit", async () => {
-
-        await page.click(
-            'button[type=submit]'
-        );
-
-    });
-
-    //
-    // Wait after login
-    //
-    await wait(10000);
-
-    await dump("After Login");
-
-    throw new Error(
-        "SUCCESS\n\n" +
-        trace.join("\n")
-    );
-
-}
-catch(err){
-
-    if(page){
-
-        try{
-
-            log("Capturing screenshot...");
-
-            const img = await page.screenshot({
-                encoding:'base64',
-                fullPage:true
-            });
-
-            log("SCREENSHOT(base64 first 1000 chars):");
-            log(img.substring(0,1000));
-
-        }catch(e){
-            log("Screenshot failed");
-        }
-
-        try{
-
-            const html = await page.content();
-
-            log("HTML(first 5000 chars):");
-            log(html.substring(0,5000));
-
-        }catch(e){
-            log("HTML capture failed");
-        }
-
-    }
-
-    throw new Error(
-        err.message +
-        "\n\n================ TRACE ================\n\n" +
-        trace.join("\n")
-    );
-
-}
-finally{
-
-    if(browser){
-
-        try{
-            await browser.close();
-        }catch(e){}
-    }
-
+  throw new Error(JSON.stringify({
+    status: 'FAILED',
+    error: err.message,
+    diagnostics,
+    logs,
+  }, null, 2));
 }
