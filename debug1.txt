@@ -47,8 +47,10 @@ const main = async () => {
 
   // ── Login ──────────────────────────────────────────────────────────────────
   currentStep = 'goto login page';
-  await page.goto('https://background.tagesspiegel.de/login', { waitUntil: 'domcontentloaded', timeout: 0 });
-  currentStep = 'login page loaded url=' + page.url();
+  await page.goto('https://background.tagesspiegel.de/login', { waitUntil: 'commit', timeout: 0 });
+  currentStep = 'login page commit url=' + page.url();
+  await wait(3000);
+  currentStep = 'login page settled url=' + page.url();
 
   currentStep = 'fill email';
   await page.evaluate(`(function() {
@@ -83,8 +85,10 @@ const main = async () => {
 
   // ── Article List ───────────────────────────────────────────────────────────
   currentStep = 'goto list page';
-  await page.goto(LIST_URL, { waitUntil: 'domcontentloaded', timeout: 0 });
-  currentStep = 'list page loaded url=' + page.url();
+  await page.goto(LIST_URL, { waitUntil: 'commit', timeout: 0 });
+  currentStep = 'list page commit url=' + page.url();
+  await wait(3000);
+  currentStep = 'list page settled url=' + page.url();
 
   currentStep = 'count articles';
   const articleCount = await page.evaluate(`(function() {
@@ -104,8 +108,10 @@ const main = async () => {
 
   // ── First Article Content ──────────────────────────────────────────────────
   currentStep = 'goto first article';
-  await page.goto(firstUrl, { waitUntil: 'domcontentloaded', timeout: 0 });
-  currentStep = 'article page loaded url=' + page.url();
+  await page.goto(firstUrl, { waitUntil: 'commit', timeout: 0 });
+  currentStep = 'article commit url=' + page.url();
+  await wait(3000);
+  currentStep = 'article settled url=' + page.url();
 
   const articleTitle = await page.evaluate(`(function() {
     return document.querySelector('h1')?.innerText?.trim() || 'not found';
