@@ -35,134 +35,107 @@ const main = async () => {
     ]
   });
 
-  currentStep = 'new page';
   page = await browser.newPage();
   page.setDefaultTimeout(0);
   page.setDefaultNavigationTimeout(0);
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
 
-  // Track proxy response: did we get any bytes, and when?
+  // Track first proxy response timing
   const navStart = Date.now();
   page.on('response', res => {
-    const u = res.url();
-    if (u.includes('tagesspiegel.de') && firstByteMs === null) {
+    if (res.url().includes('tagesspiegel.de') && firstByteMs === null) {
       firstByteMs = Date.now() - navStart;
       httpStatus = res.status();
     }
   });
 
-  // Evaluate a string expression in a frame with a hard timeout.
-  // Promise.race prevents frame.evaluate() from blocking forever when the
-  // frame has no JS context yet (navigation still pending through proxy).
-  const frameEval = (frame, expr, ms = 3000) =>
-    Promise.race([
-      frame.evaluate(expr).catch(e => { throw e; }),
-      wait(ms).then(() => { throw new Error('frame eval timeout'); })
-    ]);
-
-  // Try expression in every known frame; return first truthy { result, frame }.
-  const evalInAllFrames = async (expr, msPerFrame = 2000) => {
-    for (const frame of page.frames()) {
-      try {
-        const r = await frameEval(frame, expr, msPerFrame);
-        if (r !== undefined && r !== null && r !== false) return { result: r, frame };
-      } catch(e) {}
+  // Block images/CSS/fonts — DOMContentLoaded was never firing because blocking
+  // scripts/analytics hang through the proxy's SSL inspection. Without heavy
+  // assets, DOMContentLoaded fires as soon as the HTML + scripts load.
+  await page.setRequestInterception(true);
+  page.on('request', req => {
+    const t = req.resourceType();
+    if (['image', 'stylesheet', 'font', 'media'].includes(t)) {
+      req.abort();
+    } else {
+      req.continue();
     }
-    return null;
-  };
+  });
 
   // ── Login ──────────────────────────────────────────────────────────────────
+  // AWAIT goto (not fire-and-forget) — frame.evaluate() blocks until navigation
+  // settles. Wrapping in Promise.race gives us a clean timeout with diagnostics.
   currentStep = 'goto login page';
-  page.goto('https://background.tagesspiegel.de/login', { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
-  await wait(15000); // proxy needs ~30-40s for first TCP+SSL; give it a head start
+  await Promise.race([
+    page.goto('https://background.tagesspiegel.de/login', { waitUntil: 'domcontentloaded', timeout: 0 }),
+    wait(60000).then(() => { throw new Error(`login DOMContentLoaded never fired after 60s — httpStatus=${httpStatus} firstByteMs=${firstByteMs} url=${page.url()}`); })
+  ]);
 
-  currentStep = `post-15s-wait httpStatus=${httpStatus} firstByteMs=${firstByteMs}`;
+  currentStep = `login loaded — httpStatus=${httpStatus} firstByteMs=${firstByteMs} url=${page.url()}`;
 
-  // Poll all frames for email input — per-frame 5s timeout, total poll 50s.
-  // 5s per frame allows frame.evaluate() to unblock once the navigation settles.
-  currentStep = 'waiting for email input in frames';
-  let targetFrame = null;
-  const emailExpr = `!!(document.querySelector('input[type=email]') || document.querySelector('input[name="_username"]') || document.querySelector('input[name="email"]'))`;
-  const pollStart = Date.now();
-  while (!targetFrame && Date.now() - pollStart < 50000) {
-    const match = await evalInAllFrames(emailExpr, 5000);
-    if (match) { targetFrame = match.frame; break; }
-    await wait(1000);
-  }
+  // Navigation complete — page.evaluate() now works without blocking
+  const hasEmail = await page.evaluate(`!!(document.querySelector('input[type=email]') || document.querySelector('input[name="_username"]') || document.querySelector('input[name="email"]'))`);
 
-  if (!targetFrame) {
-    const frameUrls = page.frames().map(f => f.url()).join(' | ');
-    let bodyText = 'eval-timeout';
-    let pageTitle = 'eval-timeout';
-    try { bodyText = await frameEval(page.mainFrame(), `document.body ? document.body.innerText.slice(0,300).replace(/\\s+/g,' ') : 'no body'`, 4000); } catch(e) {}
-    try { pageTitle = await frameEval(page.mainFrame(), `document.title`, 3000); } catch(e) {}
-    throw new Error(
-      `email input not found after 65s total.\n` +
-      `httpStatus=${httpStatus} firstByteMs=${firstByteMs}\n` +
-      `url=${page.url()} title="${pageTitle}"\n` +
-      `frames(${page.frames().length})=[${frameUrls}]\n` +
-      `body="${bodyText}"`
-    );
+  if (!hasEmail) {
+    const title   = await page.evaluate(`document.title`).catch(() => 'eval-fail');
+    const body    = await page.evaluate(`document.body ? document.body.innerText.slice(0,400).replace(/\\s+/g,' ') : 'no body'`).catch(() => 'eval-fail');
+    const frames  = page.frames().map(f => f.url()).join(' | ');
+    throw new Error(`email input not in DOM after DOMContentLoaded.\ntitle="${title}" frames=[${frames}]\nbody="${body}"`);
   }
 
   currentStep = 'fill email';
-  await frameEval(targetFrame, `(function() {
+  await page.evaluate(`(function() {
     var input = document.querySelector('input[type=email]') || document.querySelector('input[name="_username"]') || document.querySelector('input[name="email"]');
-    if (!input) throw new Error('email input not found');
     var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
     setter.call(input, '${EMAIL.replace(/'/g, "\\'")}');
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
-  })()`, 5000);
+  })()`);
 
   currentStep = 'fill password';
-  await frameEval(targetFrame, `(function() {
+  await page.evaluate(`(function() {
     var input = document.querySelector('input[type=password]') || document.querySelector('input[name="_password"]');
     if (!input) throw new Error('password input not found');
     var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
     setter.call(input, '${PASSWORD.replace(/'/g, "\\'")}');
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
-  })()`, 5000);
+  })()`);
 
-  currentStep = 'click submit';
-  await frameEval(targetFrame, `(function() {
-    var btn = document.querySelector('button[type=submit]');
-    if (!btn) throw new Error('submit button not found');
-    btn.click();
-  })()`, 5000);
+  // Click submit and wait for redirect in one step
+  currentStep = 'click submit + await redirect';
+  await Promise.race([
+    (async () => {
+      const navPromise = page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 0 });
+      await page.evaluate(`document.querySelector('button[type=submit]').click()`);
+      await navPromise;
+    })(),
+    wait(45000).then(() => { throw new Error(`post-login redirect timed out after 45s. url=${page.url()}`); })
+  ]);
 
-  currentStep = 'waiting for post-login redirect';
-  const redirectStart = Date.now();
-  while (page.url().includes('/login') && Date.now() - redirectStart < 30000) {
-    await wait(500);
-  }
-  if (page.url().includes('/login')) throw new Error(`still on login after 30s — login may have failed. url=${page.url()}`);
+  if (page.url().includes('/login')) throw new Error(`still on login after redirect — login failed. url=${page.url()}`);
   currentStep = 'login done url=' + page.url();
 
   // ── Article List ───────────────────────────────────────────────────────────
   currentStep = 'goto list page';
-  page.goto(LIST_URL, { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
-  await wait(5000);
+  await Promise.race([
+    page.goto(LIST_URL, { waitUntil: 'domcontentloaded', timeout: 0 }),
+    wait(30000).then(() => { throw new Error(`list page DOMContentLoaded timed out. url=${page.url()}`); })
+  ]);
 
   currentStep = 'waiting for article tiles';
   let articleCount = 0;
   const listPollStart = Date.now();
-  while (Date.now() - listPollStart < 20000) {
-    const match = await evalInAllFrames(`(function() {
-      var n = document.querySelectorAll('div.ts-article-tile').length;
-      return n > 0 ? n : false;
-    })()`);
-    if (match) { articleCount = match.result; break; }
+  while (Date.now() - listPollStart < 15000) {
+    const n = await page.evaluate(`document.querySelectorAll('div.ts-article-tile').length`).catch(() => 0);
+    if (n > 0) { articleCount = n; break; }
     await wait(1000);
   }
-  currentStep = 'articles found=' + articleCount;
 
-  const firstMatch = await evalInAllFrames(`(function() {
+  const firstUrl = await page.evaluate(`(function() {
     var a = document.querySelector('div.ts-article-tile a.stretched-link');
-    return a ? a.href : false;
-  })()`);
-  const firstUrl = firstMatch ? firstMatch.result : 'not found';
+    return a ? a.href : 'not found';
+  })()`).catch(() => 'eval-fail');
 
   return `SUCCESS\nhttpStatus=${httpStatus} firstByteMs=${firstByteMs}\nlogin=OK\npost-login url=${page.url()}\narticles=${articleCount}\nfirst=${firstUrl}`;
 };
