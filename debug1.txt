@@ -3,7 +3,7 @@
 // Verify: kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep TASK_TIMEOUT
 
 // n8n Code Node — Full login + article list + content debug
-// 58s overall timeout fires before runner's 60s limit
+// 50s overall timeout fires before runner's 60s limit (gives 10s cleanup)
 // currentStep updated at each point — shows exactly where it got stuck
 
 const puppeteer = require('puppeteer-extra');
@@ -20,9 +20,9 @@ let currentStep = 'init';
 let browser = null;
 let page = null;
 
-// Overall 58s timeout — fires before runner 60s limit
-const overallTimeout = wait(58000).then(() => {
-  throw new Error(`OVERALL TIMEOUT (58s) — stuck at: [${currentStep}]`);
+// Overall 50s timeout — gives 10s for cleanup before runner kills at 60s
+const overallTimeout = wait(50000).then(() => {
+  throw new Error(`OVERALL TIMEOUT (50s) — stuck at: [${currentStep}]`);
 });
 
 const main = async () => {
