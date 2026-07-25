@@ -83,10 +83,19 @@ const main = async () => {
   // ── Login ──────────────────────────────────────────────────────────────────
   await gotoAndWaitContext('https://background.tagesspiegel.de/login', 30000, 'login page');
 
+  // Poll until email input appears in DOM (context fires early, before form renders)
+  currentStep = 'waiting for email input';
+  let emailReady = false;
+  for (let i = 0; i < 20; i++) {
+    const found = await cdpEval(`!!(document.querySelector('input[type=email]') || document.querySelector('input[name=email]'))`);
+    if (found) { emailReady = true; break; }
+    await wait(500);
+  }
+  if (!emailReady) throw new Error('email input not found after 10s');
+
   currentStep = 'fill email';
   await cdpEval(`(function() {
     var input = document.querySelector('input[type=email]') || document.querySelector('input[name=email]');
-    if (!input) throw new Error('email input not found');
     var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
     setter.call(input, '${EMAIL.replace(/'/g, "\\'")}');
     input.dispatchEvent(new Event('input', { bubbles: true }));
