@@ -1,16 +1,15 @@
 // ── Pre-run setup (run in terminal before executing this node) ────────────────
-// 1. Increase task-runner memory (Chromium needs ~1-2 GB):
-//    kubectl set resources deployment/n8n -n preme-n8n -c task-runner --limits=memory=2Gi --requests=memory=512Mi
+// Switch to INTERNAL runner (runs in n8n container — Chromium confirmed working there):
+//    kubectl set env deployment/n8n -n preme-n8n -c n8n N8N_RUNNERS_MODE=internal
 //    kubectl rollout restart deployment/n8n -n preme-n8n
+//    kubectl get pods -n preme-n8n -w
 //
-// 2. Set task-runner timeout to 120s:
-//    kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_TASK_TIMEOUT=120
+// Set timeout to 120s:
+//    kubectl set env deployment/n8n -n preme-n8n -c n8n N8N_RUNNERS_TASK_TIMEOUT=120
 //
-// Check current limits:
-//    kubectl get deployment n8n -n preme-n8n -o jsonpath='{range .spec.template.spec.containers[*]}{.name}: {.resources}{"\n"}{end}'
-//
-// Revert timeout after debug:
-//    kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_TASK_TIMEOUT=60
+// Revert after debug:
+//    kubectl set env deployment/n8n -n preme-n8n -c n8n N8N_RUNNERS_MODE=external
+//    kubectl set env deployment/n8n -n preme-n8n -c n8n N8N_RUNNERS_TASK_TIMEOUT=600
 
 const puppeteer = require('puppeteer-extra');
 const Stealth = require('puppeteer-extra-plugin-stealth');
@@ -65,14 +64,22 @@ const main = async () => {
   // Flag flipped to false before navigating to list page so article tiles can render.
   let blockScripts = true;
   await page.setRequestInterception(true);
+  // req.abort() and req.continue() return promises — on Node.js v24 an unhandled
+  // rejection crashes the process (kills the task-runner WebSocket). Always catch.
   page.on('request', req => {
     const t = req.resourceType();
     if (blockScripts) {
-      if (['image', 'stylesheet', 'font', 'media', 'script', 'other'].includes(t)) req.abort();
-      else req.continue();
+      if (['image', 'stylesheet', 'font', 'media', 'script', 'other'].includes(t)) {
+        req.abort().catch(() => {});
+      } else {
+        req.continue().catch(() => {});
+      }
     } else {
-      if (['image', 'font', 'media'].includes(t)) req.abort();
-      else req.continue();
+      if (['image', 'font', 'media'].includes(t)) {
+        req.abort().catch(() => {});
+      } else {
+        req.continue().catch(() => {});
+      }
     }
   });
 
