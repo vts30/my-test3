@@ -31,7 +31,10 @@ const main = async () => {
     args: [
       '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
       '--ignore-certificate-errors',
-      '--proxy-server=http://proxy.idst.ibaintern.de:8080'
+      '--proxy-server=http://proxy.idst.ibaintern.de:8080',
+      '--disable-gpu', '--no-zygote', '--disable-extensions',
+      '--disable-background-networking', '--disable-default-apps',
+      '--disable-sync', '--no-first-run', '--mute-audio'
     ]
   });
 
