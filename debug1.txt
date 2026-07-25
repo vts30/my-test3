@@ -1,6 +1,7 @@
-// ── Revert task-runner timeout from 600s back to 60s ─────────────────────────
-// kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_TASK_TIMEOUT=60
+// ── Set task-runner timeout to 120s for this debug ───────────────────────────
+// kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_TASK_TIMEOUT=120
 // Verify: kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep TASK_TIMEOUT
+// To revert to 60s after debug: kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_TASK_TIMEOUT=60
 
 // n8n Code Node — Full login + article list + content debug
 // Tracks executionContextId explicitly + auto-retries cdpEval
@@ -19,9 +20,10 @@ let currentStep = 'init';
 let browser = null;
 let page = null;
 
-// Overall 55s timeout — gives 5s cleanup before runner kills at 60s
-const overallTimeout = wait(55000).then(() => {
-  throw new Error(`OVERALL TIMEOUT (55s) — stuck at: [${currentStep}]`);
+// Overall 110s timeout — gives 10s cleanup before runner kills at 120s
+// Runner must be set to 120s: kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_TASK_TIMEOUT=120
+const overallTimeout = wait(110000).then(() => {
+  throw new Error(`OVERALL TIMEOUT (110s) — stuck at: [${currentStep}]`);
 });
 
 const main = async () => {
@@ -63,25 +65,21 @@ const main = async () => {
     }
   });
 
-  // CDP evaluate with explicit contextId + auto-retry (3 attempts, 5s each)
+  // CDP evaluate with explicit contextId — single attempt, 3s timeout
+  // Callers that need retry use their own loop (e.g. email input polling)
   const cdpEval = async (expr) => {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const params = { expression: expr, returnByValue: true };
-      if (contextId) params.contextId = contextId;
-      const res = await Promise.race([
-        cdp.send('Runtime.evaluate', params).catch(e => ({ _error: e.message })),
-        wait(5000).then(() => ({ _timeout: true }))
-      ]);
-      if (res._timeout || res._error) {
-        if (attempt < 2) { await wait(500); continue; }
-        const reason = res._timeout ? 'timeout after 5s' : res._error;
-        throw new Error(`cdpEval failed (attempt ${attempt+1}): ${reason}`);
-      }
-      if (res.exceptionDetails) {
-        throw new Error(res.exceptionDetails.exception?.description || res.exceptionDetails.text || 'eval exception');
-      }
-      return res.result ? res.result.value : undefined;
+    const params = { expression: expr, returnByValue: true };
+    if (contextId) params.contextId = contextId;
+    const res = await Promise.race([
+      cdp.send('Runtime.evaluate', params).catch(e => ({ _error: e.message })),
+      wait(3000).then(() => ({ _timeout: true }))
+    ]);
+    if (res._timeout) throw new Error('cdpEval timeout (3s)');
+    if (res._error) throw new Error('cdpEval error: ' + res._error);
+    if (res.exceptionDetails) {
+      throw new Error(res.exceptionDetails.exception?.description || res.exceptionDetails.text || 'eval exception');
     }
+    return res.result ? res.result.value : undefined;
   };
 
   // Navigate and wait until default JS context is ready
@@ -102,17 +100,19 @@ const main = async () => {
   // ── Login ──────────────────────────────────────────────────────────────────
   await gotoAndWaitContext('https://background.tagesspiegel.de/login', 30000, 'login page');
 
-  // Poll until email input appears (context fires before form JS renders)
+  // Poll until email input appears — skip if no context yet, check contextReady first
   currentStep = 'waiting for email input';
   let emailReady = false;
-  for (let i = 0; i < 20; i++) {
+  const emailPollStart = Date.now();
+  while (!emailReady && Date.now() - emailPollStart < 15000) {
+    if (!contextReady || !contextId) { await wait(300); continue; }
     try {
       const found = await cdpEval(`!!(document.querySelector('input[type=email]') || document.querySelector('input[name=email]'))`);
       if (found) { emailReady = true; break; }
-    } catch(e) { /* context may still be initialising */ }
+    } catch(e) { /* context changed, retry */ }
     await wait(500);
   }
-  if (!emailReady) throw new Error('email input not found after 10s — page url=' + page.url());
+  if (!emailReady) throw new Error(`email input not found after 15s — url=${page.url()} hasCtx=${!!contextId}`);
 
   currentStep = 'fill email';
   await cdpEval(`(function() {
@@ -151,7 +151,7 @@ const main = async () => {
   currentStep = 'login done url=' + page.url();
 
   // ── Article List ───────────────────────────────────────────────────────────
-  await gotoAndWaitContext(LIST_URL, 15000, 'list page');
+  await gotoAndWaitContext(LIST_URL, 30000, 'list page');
 
   currentStep = 'count articles';
   const articleCount = await cdpEval(`document.querySelectorAll('div.ts-article-tile').length`);
