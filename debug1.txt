@@ -46,16 +46,30 @@ const main = async () => {
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
   const cdp = await page.createCDPSession();
 
+  // CDP helper: send command with 2s timeout so it never hangs
+  const cdpSend = (method, params) => Promise.race([
+    cdp.send(method, params || {}).catch(e => ({ _error: e.message })),
+    wait(2000).then(() => ({ _timeout: true }))
+  ]);
+
+  // CDP evaluate: bypasses puppeteer's navigation-blocking check
+  const cdpEval = async (expr) => {
+    const res = await cdpSend('Runtime.evaluate', { expression: expr, returnByValue: true });
+    if (res._timeout) throw new Error('cdpEval timed out — no execution context yet');
+    if (res.exceptionDetails) throw new Error(res.exceptionDetails.exception?.description || res.exceptionDetails.text || 'eval exception');
+    return res.result ? res.result.value : undefined;
+  };
+
   // ── Login ──────────────────────────────────────────────────────────────────
   currentStep = 'goto login page';
   page.goto('https://background.tagesspiegel.de/login', { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
   await wait(8000);
-  try { await cdp.send('Page.stopLoading'); } catch(e) {}
-  await wait(300);
+  await cdpSend('Page.stopLoading');
+  await wait(500);
   currentStep = 'login page settled url=' + page.url();
 
   currentStep = 'fill email';
-  await page.evaluate(`(function() {
+  await cdpEval(`(function() {
     var input = document.querySelector('input[type=email]') || document.querySelector('input[name=email]');
     if (!input) throw new Error('email input not found');
     var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
@@ -65,7 +79,7 @@ const main = async () => {
   })()`);
 
   currentStep = 'fill password';
-  await page.evaluate(`(function() {
+  await cdpEval(`(function() {
     var input = document.querySelector('input[type=password]');
     if (!input) throw new Error('password input not found');
     var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
@@ -75,7 +89,7 @@ const main = async () => {
   })()`);
 
   currentStep = 'click submit';
-  await page.evaluate(`(function() {
+  await cdpEval(`(function() {
     var btn = document.querySelector('button[type=submit]');
     if (!btn) throw new Error('submit button not found');
     btn.click();
@@ -83,23 +97,25 @@ const main = async () => {
 
   currentStep = 'waiting 8s after submit';
   await wait(8000);
+  await cdpSend('Page.stopLoading');
+  await wait(500);
   currentStep = 'login done url=' + page.url();
 
   // ── Article List ───────────────────────────────────────────────────────────
   currentStep = 'goto list page';
   page.goto(LIST_URL, { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
   await wait(8000);
-  try { await cdp.send('Page.stopLoading'); } catch(e) {}
-  await wait(300);
+  await cdpSend('Page.stopLoading');
+  await wait(500);
   currentStep = 'list page settled url=' + page.url();
 
   currentStep = 'count articles';
-  const articleCount = await page.evaluate(`(function() {
+  const articleCount = await cdpEval(`(function() {
     return document.querySelectorAll('div.ts-article-tile').length;
   })()`);
   currentStep = 'articles found=' + articleCount;
 
-  const firstUrl = await page.evaluate(`(function() {
+  const firstUrl = await cdpEval(`(function() {
     var a = document.querySelector('div.ts-article-tile a.stretched-link');
     return a ? a.href : 'not found';
   })()`);
@@ -113,15 +129,15 @@ const main = async () => {
   currentStep = 'goto first article';
   page.goto(firstUrl, { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
   await wait(8000);
-  try { await cdp.send('Page.stopLoading'); } catch(e) {}
-  await wait(300);
+  await cdpSend('Page.stopLoading');
+  await wait(500);
   currentStep = 'article settled url=' + page.url();
 
-  const articleTitle = await page.evaluate(`(function() {
+  const articleTitle = await cdpEval(`(function() {
     return document.querySelector('h1')?.innerText?.trim() || 'not found';
   })()`);
 
-  const articleLead = await page.evaluate(`(function() {
+  const articleLead = await cdpEval(`(function() {
     return document.querySelector('p')?.innerText?.trim()?.substring(0, 200) || 'not found';
   })()`);
 
