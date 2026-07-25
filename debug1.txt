@@ -48,20 +48,20 @@ const main = async () => {
     }
   });
 
-  // Single interceptor with a flag — avoids race conditions from swapping listeners.
-  // blockScripts=true for login (scripts hang via SSL inspection, form is static HTML).
-  // blockScripts=false for list page (scripts needed for article tile rendering).
+  // Single interceptor with a flag — swapping listeners mid-navigation causes races.
   let blockScripts = true;
   await page.setRequestInterception(true);
   page.on('request', req => {
     const t = req.resourceType();
     if (blockScripts) {
+      // Login page: block scripts so DOMContentLoaded fires (scripts hang via SSL inspection)
       if (['image', 'stylesheet', 'font', 'media', 'script', 'other'].includes(t)) {
         req.abort();
       } else {
         req.continue();
       }
     } else {
+      // List page: allow scripts for article tile rendering
       if (['image', 'font', 'media'].includes(t)) {
         req.abort();
       } else {
@@ -70,12 +70,32 @@ const main = async () => {
     }
   });
 
+  // page.goto() can throw "Navigating frame was detached" when a redirect chain
+  // crosses origins and Chromium replaces the renderer process. The navigation
+  // still succeeds — the new frame just needs a moment to settle.
+  const safegoto = async (url, maxMs, label) => {
+    try {
+      await Promise.race([
+        page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 }),
+        wait(maxMs).then(() => { throw new Error(`[${label}] DOMContentLoaded timed out ${maxMs}ms — url=${page.url()}`); })
+      ]);
+    } catch(e) {
+      if ((e.message || '').toLowerCase().includes('detach')) {
+        // Frame replaced — poll evaluate until the new frame is ready
+        currentStep = `[${label}] frame detached, waiting for new frame`;
+        const since = Date.now();
+        while (Date.now() - since < 15000) {
+          try { await page.evaluate('1'); break; } catch(_) { await wait(500); }
+        }
+      } else {
+        throw e;
+      }
+    }
+  };
+
   // ── Login ──────────────────────────────────────────────────────────────────
   currentStep = 'goto login page';
-  await Promise.race([
-    page.goto('https://background.tagesspiegel.de/login', { waitUntil: 'domcontentloaded', timeout: 0 }),
-    wait(30000).then(() => { throw new Error(`login DOMContentLoaded timed out 30s — httpStatus=${httpStatus} firstByteMs=${firstByteMs} url=${page.url()}`); })
-  ]);
+  await safegoto('https://background.tagesspiegel.de/login', 30000, 'login');
 
   currentStep = `login loaded — httpStatus=${httpStatus} firstByteMs=${firstByteMs} url=${page.url()}`;
 
@@ -110,8 +130,7 @@ const main = async () => {
   currentStep = 'click submit';
   await page.evaluate(`document.querySelector('button[type=submit]').click()`);
 
-  // Poll URL instead of waitForNavigation — avoids "Navigating frame was detached"
-  // that occurs when redirect hops cause the tracked frame to be destroyed.
+  // Poll URL — no waitForNavigation to avoid another detach error
   currentStep = 'waiting for post-login redirect';
   const redirectStart = Date.now();
   while (page.url().includes('/login') && Date.now() - redirectStart < 30000) {
@@ -120,15 +139,11 @@ const main = async () => {
   if (page.url().includes('/login')) throw new Error(`still on login after 30s — login failed. url=${page.url()}`);
   currentStep = 'login done url=' + page.url();
 
-  // Allow scripts for list page before navigating there
   blockScripts = false;
 
   // ── Article List ───────────────────────────────────────────────────────────
   currentStep = 'goto list page';
-  await Promise.race([
-    page.goto(LIST_URL, { waitUntil: 'domcontentloaded', timeout: 0 }),
-    wait(30000).then(() => { throw new Error(`list page DOMContentLoaded timed out 30s. url=${page.url()}`); })
-  ]);
+  await safegoto(LIST_URL, 30000, 'list');
 
   currentStep = 'waiting for article tiles';
   let articleCount = 0;
