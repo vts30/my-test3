@@ -112,7 +112,20 @@ const main = async () => {
     } catch(e) { /* context changed, retry */ }
     await wait(500);
   }
-  if (!emailReady) throw new Error(`email input not found after 15s — url=${page.url()} hasCtx=${!!contextId}`);
+  if (!emailReady) {
+    let diagInfo = 'n/a';
+    try {
+      diagInfo = await cdpEval(`(function() {
+        return JSON.stringify({
+          url: location.href,
+          title: document.title,
+          inputs: [...document.querySelectorAll('input')].map(i => i.type + '/' + i.name + '/' + i.className).join(', '),
+          bodyText: document.body ? document.body.innerText.slice(0, 150) : 'no body'
+        });
+      })()`);
+    } catch(e) { diagInfo = 'eval failed: ' + e.message; }
+    throw new Error(`email input not found after 15s — ${diagInfo}`);
+  }
 
   currentStep = 'fill email';
   await cdpEval(`(function() {
