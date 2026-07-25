@@ -48,64 +48,65 @@ const main = async () => {
     }
   });
 
-  // Single interceptor with a flag — swapping listeners mid-navigation causes races.
+  // Block scripts on login page so DOMContentLoaded fires fast (scripts hang via proxy SSL inspection).
+  // Flag flipped to false before navigating to list page so article tiles can render.
   let blockScripts = true;
   await page.setRequestInterception(true);
   page.on('request', req => {
     const t = req.resourceType();
     if (blockScripts) {
-      // Login page: block scripts so DOMContentLoaded fires (scripts hang via SSL inspection)
-      if (['image', 'stylesheet', 'font', 'media', 'script', 'other'].includes(t)) {
-        req.abort();
-      } else {
-        req.continue();
-      }
+      if (['image', 'stylesheet', 'font', 'media', 'script', 'other'].includes(t)) req.abort();
+      else req.continue();
     } else {
-      // List page: allow scripts for article tile rendering
-      if (['image', 'font', 'media'].includes(t)) {
-        req.abort();
-      } else {
-        req.continue();
-      }
+      if (['image', 'font', 'media'].includes(t)) req.abort();
+      else req.continue();
     }
   });
 
-  // page.goto() can throw "Navigating frame was detached" when a redirect chain
-  // crosses origins and Chromium replaces the renderer process. The navigation
-  // still succeeds — the new frame just needs a moment to settle.
-  const safegoto = async (url, maxMs, label) => {
+  // Navigate via window.location.href instead of page.goto().
+  // page.goto() creates a puppeteer LifecycleWatcher that throws "Navigating frame
+  // was detached" / "Attempted to use detached Frame" when redirect chains cross
+  // origins and Chromium replaces the renderer process.
+  // window.location.href assignment returns immediately (before navigation starts),
+  // so puppeteer never gets a chance to throw. We then poll for what we need.
+  const navigate = async (url) => {
     try {
-      await Promise.race([
-        page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 }),
-        wait(maxMs).then(() => { throw new Error(`[${label}] DOMContentLoaded timed out ${maxMs}ms — url=${page.url()}`); })
-      ]);
+      await page.evaluate(`window.location.href = '${url.replace(/'/g, "\\'")}'`);
     } catch(e) {
-      if ((e.message || '').toLowerCase().includes('detach')) {
-        // Frame replaced — poll evaluate until the new frame is ready
-        currentStep = `[${label}] frame detached, waiting for new frame`;
-        const since = Date.now();
-        while (Date.now() - since < 15000) {
-          try { await page.evaluate('1'); break; } catch(_) { await wait(500); }
-        }
-      } else {
-        throw e;
-      }
+      // Ignore — current frame may have already been replaced by a prior navigation
     }
   };
 
+  // poll(expr, maxMs): evaluate string expr every 500ms until truthy or timeout.
+  // Catches all errors (frame still transitioning) and retries silently.
+  const poll = async (expr, maxMs) => {
+    const deadline = Date.now() + maxMs;
+    while (Date.now() < deadline) {
+      try {
+        const v = await page.evaluate(expr);
+        if (v) return v;
+      } catch(e) {}
+      await wait(500);
+    }
+    return null;
+  };
+
   // ── Login ──────────────────────────────────────────────────────────────────
-  currentStep = 'goto login page';
-  await safegoto('https://background.tagesspiegel.de/login', 30000, 'login');
+  currentStep = 'navigate to login page';
+  await navigate('https://background.tagesspiegel.de/login');
 
-  currentStep = `login loaded — httpStatus=${httpStatus} firstByteMs=${firstByteMs} url=${page.url()}`;
-
-  const hasEmail = await page.evaluate(`!!(document.querySelector('input[type=email]') || document.querySelector('input[name="_username"]') || document.querySelector('input[name="email"]'))`);
+  currentStep = 'waiting for email input';
+  const hasEmail = await poll(
+    `!!(document.querySelector('input[type=email]') || document.querySelector('input[name="_username"]') || document.querySelector('input[name="email"]'))`,
+    45000
+  );
 
   if (!hasEmail) {
-    const title  = await page.evaluate(`document.title`).catch(() => 'eval-fail');
-    const body   = await page.evaluate(`document.body ? document.body.innerText.slice(0,400).replace(/\\s+/g,' ') : 'no body'`).catch(() => 'eval-fail');
-    const frames = page.frames().map(f => f.url()).join(' | ');
-    throw new Error(`email input not in DOM.\ntitle="${title}" frames=[${frames}]\nbody="${body}"`);
+    let title = 'eval-fail', body = 'eval-fail', url = 'unknown';
+    try { title = await page.evaluate(`document.title`); } catch(e) {}
+    try { body = await page.evaluate(`document.body ? document.body.innerText.slice(0,300).replace(/\\s+/g,' ') : 'no body'`); } catch(e) {}
+    try { url = await page.evaluate(`window.location.href`); } catch(e) {}
+    throw new Error(`email input not found after 45s.\nhttpStatus=${httpStatus} firstByteMs=${firstByteMs}\ntitle="${title}" url=${url}\nbody="${body}"`);
   }
 
   currentStep = 'fill email';
@@ -130,36 +131,37 @@ const main = async () => {
   currentStep = 'click submit';
   await page.evaluate(`document.querySelector('button[type=submit]').click()`);
 
-  // Poll URL — no waitForNavigation to avoid another detach error
+  // Poll URL until off /login — no waitForNavigation needed
   currentStep = 'waiting for post-login redirect';
   const redirectStart = Date.now();
-  while (page.url().includes('/login') && Date.now() - redirectStart < 30000) {
+  while (Date.now() - redirectStart < 30000) {
+    try {
+      const u = await page.evaluate(`window.location.href`);
+      if (u && !u.includes('/login')) break;
+    } catch(e) {}
     await wait(500);
   }
-  if (page.url().includes('/login')) throw new Error(`still on login after 30s — login failed. url=${page.url()}`);
-  currentStep = 'login done url=' + page.url();
-
-  blockScripts = false;
+  const postLoginUrl = await page.evaluate(`window.location.href`).catch(() => 'eval-fail');
+  if (postLoginUrl.includes('/login')) throw new Error(`still on login after 30s — login failed. url=${postLoginUrl}`);
+  currentStep = 'login done url=' + postLoginUrl;
 
   // ── Article List ───────────────────────────────────────────────────────────
-  currentStep = 'goto list page';
-  await safegoto(LIST_URL, 30000, 'list');
+  blockScripts = false;
+  currentStep = 'navigate to list page';
+  await navigate(LIST_URL);
 
   currentStep = 'waiting for article tiles';
-  let articleCount = 0;
-  const listPollStart = Date.now();
-  while (Date.now() - listPollStart < 20000) {
-    const n = await page.evaluate(`document.querySelectorAll('div.ts-article-tile').length`).catch(() => 0);
-    if (n > 0) { articleCount = n; break; }
-    await wait(1000);
-  }
+  const articleCount = await poll(`(function() {
+    var n = document.querySelectorAll('div.ts-article-tile').length;
+    return n > 0 ? n : null;
+  })()`, 25000) || 0;
 
   const firstUrl = await page.evaluate(`(function() {
     var a = document.querySelector('div.ts-article-tile a.stretched-link');
     return a ? a.href : 'not found';
   })()`).catch(() => 'eval-fail');
 
-  return `SUCCESS\nhttpStatus=${httpStatus} firstByteMs=${firstByteMs}\nlogin=OK\npost-login url=${page.url()}\narticles=${articleCount}\nfirst=${firstUrl}`;
+  return `SUCCESS\nhttpStatus=${httpStatus} firstByteMs=${firstByteMs}\nlogin=OK\npost-login url=${postLoginUrl}\narticles=${articleCount}\nfirst=${firstUrl}`;
 };
 
 try {
