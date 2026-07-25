@@ -3,8 +3,8 @@
 // Verify: kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep TASK_TIMEOUT
 
 // n8n Code Node — Full login + article list + content debug
-// 50s overall timeout fires before runner's 60s limit (gives 10s cleanup)
-// currentStep updated at each point — shows exactly where it got stuck
+// Uses CDP executionContextCreated event to wait for page to have JS context
+// instead of a fixed wait — works regardless of how slow the proxy is
 
 const puppeteer = require('puppeteer-extra');
 const Stealth = require('puppeteer-extra-plugin-stealth');
@@ -20,9 +20,9 @@ let currentStep = 'init';
 let browser = null;
 let page = null;
 
-// Overall 50s timeout — gives 10s for cleanup before runner kills at 60s
-const overallTimeout = wait(50000).then(() => {
-  throw new Error(`OVERALL TIMEOUT (50s) — stuck at: [${currentStep}]`);
+// Overall 55s timeout — gives 5s cleanup before runner kills at 60s
+const overallTimeout = wait(55000).then(() => {
+  throw new Error(`OVERALL TIMEOUT (55s) — stuck at: [${currentStep}]`);
 });
 
 const main = async () => {
@@ -46,6 +46,11 @@ const main = async () => {
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
   const cdp = await page.createCDPSession();
 
+  // Track when page gets a JS execution context
+  let contextReady = false;
+  await cdp.send('Runtime.enable');
+  cdp.on('Runtime.executionContextCreated', () => { contextReady = true; });
+
   // CDP helper: send command with 2s timeout so it never hangs
   const cdpSend = (method, params) => Promise.race([
     cdp.send(method, params || {}).catch(e => ({ _error: e.message })),
@@ -60,13 +65,24 @@ const main = async () => {
     return res.result ? res.result.value : undefined;
   };
 
+  // Navigate and wait until JS context is ready (fires as soon as first HTML arrives)
+  const gotoAndWaitContext = async (url, maxMs, label) => {
+    contextReady = false;
+    page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
+    const start = Date.now();
+    currentStep = label + ' [waiting for context]';
+    while (!contextReady && Date.now() - start < maxMs) {
+      await wait(300);
+    }
+    const elapsed = Date.now() - start;
+    if (!contextReady) throw new Error(`${label}: no JS context after ${elapsed}ms — proxy not delivering content`);
+    await cdpSend('Page.stopLoading');
+    await wait(300);
+    currentStep = label + ` [context ready in ${elapsed}ms] url=` + page.url();
+  };
+
   // ── Login ──────────────────────────────────────────────────────────────────
-  currentStep = 'goto login page';
-  page.goto('https://background.tagesspiegel.de/login', { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
-  await wait(8000);
-  await cdpSend('Page.stopLoading');
-  await wait(500);
-  currentStep = 'login page settled url=' + page.url();
+  await gotoAndWaitContext('https://background.tagesspiegel.de/login', 30000, 'login page');
 
   currentStep = 'fill email';
   await cdpEval(`(function() {
@@ -95,19 +111,13 @@ const main = async () => {
     btn.click();
   })()`);
 
-  currentStep = 'waiting 8s after submit';
-  await wait(8000);
-  await cdpSend('Page.stopLoading');
-  await wait(500);
+  // Wait for redirect after login
+  await gotoAndWaitContext('https://background.tagesspiegel.de/login', 15000, 'post-login redirect');
+
   currentStep = 'login done url=' + page.url();
 
   // ── Article List ───────────────────────────────────────────────────────────
-  currentStep = 'goto list page';
-  page.goto(LIST_URL, { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
-  await wait(8000);
-  await cdpSend('Page.stopLoading');
-  await wait(500);
-  currentStep = 'list page settled url=' + page.url();
+  await gotoAndWaitContext(LIST_URL, 15000, 'list page');
 
   currentStep = 'count articles';
   const articleCount = await cdpEval(`(function() {
@@ -119,35 +129,14 @@ const main = async () => {
     var a = document.querySelector('div.ts-article-tile a.stretched-link');
     return a ? a.href : 'not found';
   })()`);
-  currentStep = 'first article url=' + firstUrl;
 
-  if (firstUrl === 'not found') {
-    return `LOGIN OK, LIST OK, but no article tiles found — url=${page.url()}`;
-  }
-
-  // ── First Article Content ──────────────────────────────────────────────────
-  currentStep = 'goto first article';
-  page.goto(firstUrl, { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
-  await wait(8000);
-  await cdpSend('Page.stopLoading');
-  await wait(500);
-  currentStep = 'article settled url=' + page.url();
-
-  const articleTitle = await cdpEval(`(function() {
-    return document.querySelector('h1')?.innerText?.trim() || 'not found';
-  })()`);
-
-  const articleLead = await cdpEval(`(function() {
-    return document.querySelector('p')?.innerText?.trim()?.substring(0, 200) || 'not found';
-  })()`);
-
-  return `SUCCESS\nlogin=OK\narticles=${articleCount}\nfirst=${firstUrl}\ntitle=${articleTitle}\nlead=${articleLead}`;
+  return `SUCCESS\nlogin=OK\npost-login url=${page.url()}\narticles=${articleCount}\nfirst=${firstUrl}`;
 };
 
 try {
   const result = await Promise.race([main(), overallTimeout]);
   throw new Error(result);
 } catch(e) {
-  if (browser) await Promise.race([browser.close(), wait(3000)]).catch(() => {});
+  if (browser) await Promise.race([browser.close(), wait(2000)]).catch(() => {});
   throw new Error(e.message);
 }
