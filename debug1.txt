@@ -1,3 +1,23 @@
+// ── Permanent fix needed: patch ErrorLike.js in task-runner container ─────────
+// puppeteer-core 24.6.0 + Node.js v24: rewriteError() crashes runner on any timeout
+// Run once after every pod restart (lost on restart, does not affect deployment config):
+//
+// kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- node -e "
+// const fs = require('fs');
+// const file = '/install/node_modules/puppeteer-core/lib/cjs/puppeteer/util/ErrorLike.js';
+// let content = fs.readFileSync(file, 'utf8');
+// content = content.replace(
+//   'error.message = message;',
+//   'try { error.message = message; } catch(e) { Object.defineProperty(error, \"message\", {value: message, configurable: true, writable: true}); }'
+// );
+// fs.writeFileSync(file, content);
+// console.log('Patched OK');
+// "
+//
+// After patching, timeouts work normally and runner no longer crashes.
+// For a permanent fix: rebuild task-runner image with puppeteer-core >= 24.7.0 or Node.js 20.
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Stage 1 — Test login only (paste as Code node in n8n UI)
 // Replace YOUR_EMAIL and YOUR_PASSWORD with real credentials
 
