@@ -66,6 +66,7 @@ const main = async () => {
   };
 
   // Navigate and wait until JS context is ready (fires as soon as first HTML arrives)
+  // No Page.stopLoading — cdpEval works fine with navigation still in progress
   const gotoAndWaitContext = async (url, maxMs, label) => {
     contextReady = false;
     page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
@@ -76,8 +77,6 @@ const main = async () => {
     }
     const elapsed = Date.now() - start;
     if (!contextReady) throw new Error(`${label}: no JS context after ${elapsed}ms — proxy not delivering content`);
-    await cdpSend('Page.stopLoading');
-    await wait(300);
     currentStep = label + ` [context ready in ${elapsed}ms] url=` + page.url();
   };
 
@@ -119,8 +118,6 @@ const main = async () => {
     await wait(300);
   }
   if (!contextReady) throw new Error(`post-login redirect: no JS context after ${Date.now() - redirectStart}ms`);
-  await cdpSend('Page.stopLoading');
-  await wait(300);
   currentStep = 'login done url=' + page.url();
 
   // ── Article List ───────────────────────────────────────────────────────────
