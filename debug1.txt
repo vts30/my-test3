@@ -1,3 +1,7 @@
+// ── Revert task-runner timeout from 600s back to 60s ─────────────────────────
+// kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_TASK_TIMEOUT=60
+// Verify: kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep TASK_TIMEOUT
+
 // n8n Code Node — Full login + article list + content debug
 // 58s overall timeout fires before runner's 60s limit
 // currentStep updated at each point — shows exactly where it got stuck
