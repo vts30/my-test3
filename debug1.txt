@@ -1,4 +1,4 @@
-// Stage 1 — Test login (paste as Code node in n8n UI)
+// Stage 1 — Test login only (paste as Code node in n8n UI)
 // Replace YOUR_EMAIL and YOUR_PASSWORD with real credentials
 
 const puppeteer = require('puppeteer-extra');
@@ -25,39 +25,43 @@ let result = 'not started';
 try {
   const page = await browser.newPage();
   page.setDefaultNavigationTimeout(0);
+  page.setDefaultTimeout(0); // disable all puppeteer timeouts to avoid runner crash
+
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
 
   result = 'before goto login';
   await raceTimeout(
     page.goto('https://background.tagesspiegel.de/login', { waitUntil: 'domcontentloaded' }),
-    20000, 'HUNG: page.goto login did not complete in 20s'
+    20000, 'HUNG: page.goto login'
   );
 
-  result = 'login page loaded, url=' + page.url();
+  result = 'login page loaded url=' + page.url();
   await wait(3000);
 
-  await page.evaluate(`(function() {
+  result = 'filling email';
+  await raceTimeout(page.evaluate(`(function() {
     var input = document.querySelector('input[type=email]');
     if (!input) throw new Error('no email input');
     var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
     setter.call(input, '${EMAIL.replace(/'/g, "\\'")}');
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
-  })()`);
+  })()`), 10000, 'HUNG: evaluate email');
 
-  await page.evaluate(`(function() {
+  result = 'filling password';
+  await raceTimeout(page.evaluate(`(function() {
     var input = document.querySelector('input[type=password]');
     if (!input) throw new Error('no password input');
     var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
     setter.call(input, '${PASSWORD.replace(/'/g, "\\'")}');
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
-  })()`);
+  })()`), 10000, 'HUNG: evaluate password');
 
-  result = 'credentials filled, clicking submit';
-  await page.click('button[type=submit]');
+  result = 'clicking submit';
+  await raceTimeout(page.click('button[type=submit]'), 5000, 'HUNG: click submit');
+
   await wait(8000);
-
   result = 'URL after login: ' + page.url();
 } catch(e) {
   result = 'FAIL at [' + result + ']: ' + e.message;
