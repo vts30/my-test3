@@ -65,21 +65,27 @@ const main = async () => {
     }
   });
 
-  // CDP evaluate with explicit contextId — single attempt, 3s timeout
-  // Callers that need retry use their own loop (e.g. email input polling)
+  // CDP evaluate — tries with contextId first, falls back to no contextId on
+  // "Target closed" / "context destroyed" (context replaced by SPA navigation)
   const cdpEval = async (expr) => {
-    const params = { expression: expr, returnByValue: true };
-    if (contextId) params.contextId = contextId;
-    const res = await Promise.race([
-      cdp.send('Runtime.evaluate', params).catch(e => ({ _error: e.message })),
-      wait(3000).then(() => ({ _timeout: true }))
-    ]);
-    if (res._timeout) throw new Error('cdpEval timeout (3s)');
-    if (res._error) throw new Error('cdpEval error: ' + res._error);
-    if (res.exceptionDetails) {
-      throw new Error(res.exceptionDetails.exception?.description || res.exceptionDetails.text || 'eval exception');
+    for (const useCtxId of [true, false]) {
+      const params = { expression: expr, returnByValue: true };
+      if (useCtxId && contextId) params.contextId = contextId;
+      const res = await Promise.race([
+        cdp.send('Runtime.evaluate', params).catch(e => ({ _error: e.message })),
+        wait(5000).then(() => ({ _timeout: true }))
+      ]);
+      if (res._timeout) throw new Error('cdpEval timeout (5s)');
+      if (res._error) {
+        const isCtxErr = res._error.includes('Target closed') || res._error.includes('context') || res._error.includes('Cannot find context');
+        if (useCtxId && isCtxErr) { contextId = null; continue; } // retry without contextId
+        throw new Error('cdpEval error: ' + res._error);
+      }
+      if (res.exceptionDetails) {
+        throw new Error(res.exceptionDetails.exception?.description || res.exceptionDetails.text || 'eval exception');
+      }
+      return res.result ? res.result.value : undefined;
     }
-    return res.result ? res.result.value : undefined;
   };
 
   // Navigate and wait until default JS context is ready
