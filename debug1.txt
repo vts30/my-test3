@@ -48,22 +48,29 @@ const main = async () => {
     }
   });
 
+  // Single interceptor with a flag — avoids race conditions from swapping listeners.
+  // blockScripts=true for login (scripts hang via SSL inspection, form is static HTML).
+  // blockScripts=false for list page (scripts needed for article tile rendering).
+  let blockScripts = true;
   await page.setRequestInterception(true);
-
-  // ── Phase 1: Login page — block scripts too ───────────────────────────────
-  // Scripts (analytics, Usercentrics, etc.) hang through SSL inspection and
-  // prevent DOMContentLoaded from ever firing. The Symfony login form is
-  // server-rendered static HTML so it doesn't need scripts to appear.
-  const loginInterceptor = req => {
+  page.on('request', req => {
     const t = req.resourceType();
-    if (['image', 'stylesheet', 'font', 'media', 'script', 'other'].includes(t)) {
-      req.abort();
+    if (blockScripts) {
+      if (['image', 'stylesheet', 'font', 'media', 'script', 'other'].includes(t)) {
+        req.abort();
+      } else {
+        req.continue();
+      }
     } else {
-      req.continue();
+      if (['image', 'font', 'media'].includes(t)) {
+        req.abort();
+      } else {
+        req.continue();
+      }
     }
-  };
-  page.on('request', loginInterceptor);
+  });
 
+  // ── Login ──────────────────────────────────────────────────────────────────
   currentStep = 'goto login page';
   await Promise.race([
     page.goto('https://background.tagesspiegel.de/login', { waitUntil: 'domcontentloaded', timeout: 0 }),
@@ -78,7 +85,7 @@ const main = async () => {
     const title  = await page.evaluate(`document.title`).catch(() => 'eval-fail');
     const body   = await page.evaluate(`document.body ? document.body.innerText.slice(0,400).replace(/\\s+/g,' ') : 'no body'`).catch(() => 'eval-fail');
     const frames = page.frames().map(f => f.url()).join(' | ');
-    throw new Error(`email input not in DOM after DOMContentLoaded.\ntitle="${title}" frames=[${frames}]\nbody="${body}"`);
+    throw new Error(`email input not in DOM.\ntitle="${title}" frames=[${frames}]\nbody="${body}"`);
   }
 
   currentStep = 'fill email';
@@ -100,27 +107,23 @@ const main = async () => {
     input.dispatchEvent(new Event('change', { bubbles: true }));
   })()`);
 
-  currentStep = 'click submit + await redirect';
-  await Promise.race([
-    (async () => {
-      const nav = page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 0 });
-      await page.evaluate(`document.querySelector('button[type=submit]').click()`);
-      await nav;
-    })(),
-    wait(30000).then(() => { throw new Error(`post-login redirect timed out 30s. url=${page.url()}`); })
-  ]);
+  currentStep = 'click submit';
+  await page.evaluate(`document.querySelector('button[type=submit]').click()`);
 
-  if (page.url().includes('/login')) throw new Error(`still on login after redirect — login failed. url=${page.url()}`);
+  // Poll URL instead of waitForNavigation — avoids "Navigating frame was detached"
+  // that occurs when redirect hops cause the tracked frame to be destroyed.
+  currentStep = 'waiting for post-login redirect';
+  const redirectStart = Date.now();
+  while (page.url().includes('/login') && Date.now() - redirectStart < 30000) {
+    await wait(500);
+  }
+  if (page.url().includes('/login')) throw new Error(`still on login after 30s — login failed. url=${page.url()}`);
   currentStep = 'login done url=' + page.url();
 
-  // ── Phase 2: List page — allow scripts for article tile rendering ─────────
-  page.off('request', loginInterceptor);
-  page.on('request', req => {
-    const t = req.resourceType();
-    if (['image', 'font', 'media'].includes(t)) req.abort();
-    else req.continue();
-  });
+  // Allow scripts for list page before navigating there
+  blockScripts = false;
 
+  // ── Article List ───────────────────────────────────────────────────────────
   currentStep = 'goto list page';
   await Promise.race([
     page.goto(LIST_URL, { waitUntil: 'domcontentloaded', timeout: 0 }),
