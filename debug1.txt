@@ -1,5 +1,5 @@
-// Stage 1 — Test login only (paste as Code node in n8n UI)
-// Uses Promise.race + setTimeout instead of puppeteer timeout (avoids runner crash)
+// Stage 1 — Test login (paste as Code node in n8n UI)
+// Replace YOUR_EMAIL and YOUR_PASSWORD with real credentials
 
 const puppeteer = require('puppeteer-extra');
 const Stealth = require('puppeteer-extra-plugin-stealth');
@@ -8,9 +8,11 @@ puppeteer.use(Stealth());
 const EMAIL = 'YOUR_EMAIL';
 const PASSWORD = 'YOUR_PASSWORD';
 
-const timeout = (ms, msg) => new Promise((_, reject) =>
-  setTimeout(() => reject(new Error(msg)), ms)
-);
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const raceTimeout = (promise, ms, msg) => Promise.race([
+  promise,
+  wait(ms).then(() => { throw new Error(msg); })
+]);
 
 const browser = await puppeteer.launch({
   executablePath: '/usr/lib/chromium/chromium',
@@ -19,19 +21,24 @@ const browser = await puppeteer.launch({
   headless: true, ignoreHTTPSErrors: true
 });
 
+let result = 'not started';
 try {
   const page = await browser.newPage();
   page.setDefaultNavigationTimeout(0);
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
 
-  await Promise.race([
+  result = 'before goto login';
+  await raceTimeout(
     page.goto('https://background.tagesspiegel.de/login', { waitUntil: 'domcontentloaded' }),
-    timeout(20000, 'HUNG at page.goto login')
-  ]);
-  await new Promise(r => setTimeout(r, 3000));
+    20000, 'HUNG: page.goto login did not complete in 20s'
+  );
+
+  result = 'login page loaded, url=' + page.url();
+  await wait(3000);
 
   await page.evaluate(`(function() {
     var input = document.querySelector('input[type=email]');
+    if (!input) throw new Error('no email input');
     var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
     setter.call(input, '${EMAIL.replace(/'/g, "\\'")}');
     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -40,16 +47,22 @@ try {
 
   await page.evaluate(`(function() {
     var input = document.querySelector('input[type=password]');
+    if (!input) throw new Error('no password input');
     var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
     setter.call(input, '${PASSWORD.replace(/'/g, "\\'")}');
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
   })()`);
 
+  result = 'credentials filled, clicking submit';
   await page.click('button[type=submit]');
-  await new Promise(r => setTimeout(r, 8000));
+  await wait(8000);
 
-  throw new Error('URL after login: ' + page.url());
+  result = 'URL after login: ' + page.url();
+} catch(e) {
+  result = 'FAIL at [' + result + ']: ' + e.message;
 } finally {
-  await browser.close();
+  await Promise.race([browser.close(), wait(5000)]);
 }
+
+throw new Error(result);
