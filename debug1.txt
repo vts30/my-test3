@@ -1,239 +1,85 @@
-// n8n Code Node — Single-file robust Puppeteer script with Proxy support
-// Bypasses internal timeouts (Puppeteer 24.x fix) while handling proxy auth.
+// n8n Code Node — Login debug (external runner safe)
+// raceTimeout uses plain setTimeout — never triggers puppeteer rewriteError crash
 
 const puppeteer = require('puppeteer-extra');
 const Stealth = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(Stealth());
 
-// CONFIGURATION
 const EMAIL = 'YOUR_EMAIL';
 const PASSWORD = 'YOUR_PASSWORD';
-const TARGET_URL = 'https://background.tagesspiegel.de/login';
-const DEFAULT_STEP_TIMEOUT = 20000; // 20s hard cap per step
 
-// PROXY CONFIGURATION
-const USE_PROXY = true;
-const PROXY_SERVER = 'http://proxy.idst.ibaintern.de:8080'; // e.g. http://123.45.67.89:8080
-const PROXY_USER = ''; // Leave empty if proxy doesn't require auth
-const PROXY_PASS = '';
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const raceTimeout = (promise, ms, name) => Promise.race([
+  promise,
+  wait(ms).then(() => { throw new Error(`TIMEOUT at [${name}] after ${ms}ms`); })
+]);
 
-// UTILITIES
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const raceTimeout = (promise, ms, stepName) =>
-  Promise.race([
-    promise,
-    wait(ms).then(() => {
-      throw new Error(`TIMEOUT: [${stepName}] exceeded ${ms}ms limit`);
-    }),
-  ]);
-
-// CUSTOM DOM POLLING (Bypasses Puppeteer's internal timeouts)
-const waitForElement = async (page, selector, timeoutMs = 15000) => {
-  const startTime = Date.now();
-  while (Date.now() - startTime < timeoutMs) {
-    const found = await page.evaluate((sel) => {
-      const el = document.querySelector(sel);
-      if (!el) return false;
-      const style = window.getComputedStyle(el);
-      return style && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
-    }, selector);
-
-    if (found) return true;
-    await wait(300);
-  }
-  throw new Error(`Element [${selector}] not found or not visible within ${timeoutMs}ms`);
-};
-
-// CUSTOM DOM SETTER
-const setInputValue = async (page, selector, value) => {
-  return page.evaluate(
-    ({ sel, val }) => {
-      const input = document.querySelector(sel);
-      if (!input) throw new Error(`Input element not found: ${sel}`);
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-      if (setter) {
-        setter.call(input, val);
-      } else {
-        input.value = val;
-      }
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    },
-    { sel: selector, val: value }
-  );
-};
-
-// CUSTOM DOM CLICKER
-const clickElement = async (page, selector) => {
-  return page.evaluate((sel) => {
-    const el = document.querySelector(sel);
-    if (!el) throw new Error(`Click target not found: ${sel}`);
-    el.click();
-  }, selector);
-};
-
-// DIAGNOSTIC DUMP ON FAILURE
-const dumpDiagnostics = async (page, currentStep, lastError) => {
-  const diagnostics = {
-    failedStep: currentStep,
-    errorMessage: lastError?.message || String(lastError),
-    url: 'N/A',
-    title: 'N/A',
-    cookies: [],
-    visibleTextSample: 'N/A',
-    htmlSnippet: 'N/A',
-    screenshotBase64: 'N/A',
-  };
-
-  if (!page) return diagnostics;
-
-  try { diagnostics.url = page.url(); } catch (_) {}
-  try { diagnostics.title = await page.title(); } catch (_) {}
-  try { diagnostics.cookies = await page.cookies(); } catch (_) {}
-  try {
-    diagnostics.visibleTextSample = await page.evaluate(() => document.body?.innerText?.slice(0, 500) || '');
-  } catch (_) {}
-  try {
-    diagnostics.htmlSnippet = await page.evaluate(() => document.documentElement?.outerHTML?.slice(0, 1000) || '');
-  } catch (_) {}
-  try {
-    const buffer = await page.screenshot({ encoding: 'base64', fullPage: false });
-    diagnostics.screenshotBase64 = `data:image/png;base64,${buffer}`;
-  } catch (_) {}
-
-  return diagnostics;
-};
-
-// MAIN WORKFLOW EXECUTION
 let browser = null;
 let page = null;
-let currentStep = 'Initialization';
-
-const logs = {
-  console: [],
-  networkRequests: [],
-  redirectChain: [],
-};
+let step = 'init';
 
 try {
-  currentStep = 'Launch Browser';
+  step = 'launch browser';
+  browser = await raceTimeout(puppeteer.launch({
+    executablePath: '/usr/lib/chromium/chromium',
+    headless: true,
+    ignoreHTTPSErrors: true,
+    args: [
+      '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+      '--ignore-certificate-errors',
+      '--proxy-server=http://proxy.idst.ibaintern.de:8080'
+    ]
+  }), 15000, step);
 
-  const launchArgs = [
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage',
-    '--ignore-certificate-errors',
-  ];
-
-  if (USE_PROXY && PROXY_SERVER) {
-    launchArgs.push(`--proxy-server=${PROXY_SERVER}`);
-  }
-
-  browser = await raceTimeout(
-    puppeteer.launch({
-      executablePath: '/usr/lib/chromium/chromium',
-      args: launchArgs,
-      headless: true,
-      ignoreHTTPSErrors: true,
-    }),
-    15000,
-    currentStep
-  );
-
-  currentStep = 'Create Page & Disable Internal Timeouts';
+  step = 'new page';
   page = await browser.newPage();
-
-  // Disable native Puppeteer internal timeouts completely
   page.setDefaultTimeout(0);
   page.setDefaultNavigationTimeout(0);
-
-  // Authenticate Proxy if credentials are specified
-  if (USE_PROXY && PROXY_USER) {
-    await page.authenticate({
-      username: PROXY_USER,
-      password: PROXY_PASS,
-    });
-  }
-
-  // Attach diagnostic listeners
-  page.on('console', (msg) => logs.console.push(`[${msg.type()}] ${msg.text()}`));
-  page.on('request', (req) => {
-    if (req.isNavigationRequest()) logs.redirectChain.push(req.url());
-    logs.networkRequests.push(`[${req.method()}] ${req.url()}`);
-  });
-
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
 
-  currentStep = `Navigate to ${TARGET_URL}`;
+  step = 'goto login page';
   await raceTimeout(
-    page.goto(TARGET_URL, { waitUntil: 'domcontentloaded', timeout: 0 }),
-    DEFAULT_STEP_TIMEOUT,
-    currentStep
+    page.goto('https://background.tagesspiegel.de/login', { waitUntil: 'domcontentloaded', timeout: 0 }),
+    20000, step
   );
 
-  currentStep = 'Wait for Email Field in DOM';
-  await raceTimeout(
-    waitForElement(page, 'input[type=email], input[name=email]', 15000),
-    DEFAULT_STEP_TIMEOUT,
-    currentStep
-  );
+  const urlAfterGoto = page.url();
+  step = 'fill email (url=' + urlAfterGoto + ')';
 
-  currentStep = 'Set Email Value';
-  await raceTimeout(
-    setInputValue(page, 'input[type=email], input[name=email]', EMAIL),
-    DEFAULT_STEP_TIMEOUT,
-    currentStep
-  );
+  await raceTimeout(page.evaluate(`(function() {
+    var input = document.querySelector('input[type=email]') || document.querySelector('input[name=email]');
+    if (!input) throw new Error('email input not found');
+    var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    setter.call(input, '${EMAIL.replace(/'/g, "\\'")}');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`), 10000, step);
 
-  currentStep = 'Wait for Password Field in DOM';
-  await raceTimeout(
-    waitForElement(page, 'input[type=password]', 15000),
-    DEFAULT_STEP_TIMEOUT,
-    currentStep
-  );
+  step = 'fill password';
+  await raceTimeout(page.evaluate(`(function() {
+    var input = document.querySelector('input[type=password]');
+    if (!input) throw new Error('password input not found');
+    var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    setter.call(input, '${PASSWORD.replace(/'/g, "\\'")}');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`), 10000, step);
 
-  currentStep = 'Set Password Value';
-  await raceTimeout(
-    setInputValue(page, 'input[type=password]', PASSWORD),
-    DEFAULT_STEP_TIMEOUT,
-    currentStep
-  );
+  step = 'click submit';
+  await raceTimeout(page.evaluate(`(function() {
+    var btn = document.querySelector('button[type=submit]');
+    if (!btn) throw new Error('submit button not found');
+    btn.click();
+  })()`), 5000, step);
 
-  currentStep = 'Click Submit Button';
-  await raceTimeout(
-    clickElement(page, 'button[type=submit]'),
-    DEFAULT_STEP_TIMEOUT,
-    currentStep
-  );
+  step = 'wait 8s after submit';
+  await wait(8000);
 
-  currentStep = 'Post-submit settle delay';
-  await wait(5000);
+  step = 'done';
+  throw new Error('SUCCESS — url after login: ' + page.url());
 
-  const finalUrl = page.url();
-  const finalTitle = await page.title();
-
-  // Return success report
-  throw new Error(JSON.stringify({
-    status: 'SUCCESS',
-    finalUrl,
-    finalTitle,
-    logs,
-  }, null, 2));
-
-} catch (err) {
-  // Catch deliberate final exit throw vs step failures
-  if (err.message.includes('"status": "SUCCESS"')) {
-    throw err;
-  }
-
-  const diagnostics = await dumpDiagnostics(page, currentStep, err);
-  if (browser) await browser.close().catch(() => {});
-
-  throw new Error(JSON.stringify({
-    status: 'FAILED',
-    error: err.message,
-    diagnostics,
-    logs,
-  }, null, 2));
+} catch(e) {
+  const msg = e.message.startsWith('SUCCESS') ? e.message : `FAIL at [${step}]: ${e.message}`;
+  if (browser) await Promise.race([browser.close(), wait(3000)]);
+  throw new Error(msg);
 }
