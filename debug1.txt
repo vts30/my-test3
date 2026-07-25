@@ -1,7 +1,6 @@
 // ── Set task-runner timeout to 120s for this debug ───────────────────────────
 // kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_TASK_TIMEOUT=120
-// Verify: kubectl exec -it deployment/n8n -n preme-n8n -c task-runner -- env | grep TASK_TIMEOUT
-// To revert to 60s after debug: kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_TASK_TIMEOUT=60
+// To revert: kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_TASK_TIMEOUT=60
 
 const puppeteer = require('puppeteer-extra');
 const Stealth = require('puppeteer-extra-plugin-stealth');
@@ -39,152 +38,109 @@ const main = async () => {
   page.setDefaultTimeout(0);
   page.setDefaultNavigationTimeout(0);
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
-  const cdp = await page.createCDPSession();
 
-  // Track ONLY the main frame's default context (not iframes)
-  // Iframes also fire executionContextCreated with isDefault:true — we must filter by frameId
-  let mainFrameId = null;
-  let contextId = null;
-  let contextReady = false;
+  // Evaluate a string expression in a single frame with a hard timeout.
+  // Wrapping in Promise.race prevents frame.evaluate from blocking forever
+  // when the frame is still navigating through the slow proxy.
+  const frameEval = (frame, expr, ms = 3000) =>
+    Promise.race([
+      frame.evaluate(expr).catch(e => { throw e; }),
+      wait(ms).then(() => { throw new Error('frame eval timeout'); })
+    ]);
 
-  await cdp.send('Page.enable');
-  await cdp.send('Runtime.enable');
-
-  cdp.on('Page.frameNavigated', (evt) => {
-    if (!evt.frame.parentId) mainFrameId = evt.frame.id; // main frame has no parent
-  });
-
-  cdp.on('Runtime.executionContextCreated', (evt) => {
-    const aux = evt.context.auxData;
-    if (aux && aux.isDefault && aux.frameId === mainFrameId) {
-      contextId = evt.context.id;
-      contextReady = true;
+  // Try expression in every known frame; return { result, frame } of first truthy match.
+  const evalInAllFrames = async (expr, msPerFrame = 2000) => {
+    for (const frame of page.frames()) {
+      try {
+        const r = await frameEval(frame, expr, msPerFrame);
+        if (r !== undefined && r !== null && r !== false) return { result: r, frame };
+      } catch(e) { /* frame not ready or didn't match */ }
     }
-  });
-
-  cdp.on('Runtime.executionContextDestroyed', (evt) => {
-    if (evt.executionContextId === contextId) {
-      contextId = null;
-      contextReady = false;
-    }
-  });
-
-  // CDP evaluate — tries with main-frame contextId, falls back to no contextId
-  const cdpEval = async (expr) => {
-    for (const useCtxId of [true, false]) {
-      const params = { expression: expr, returnByValue: true };
-      if (useCtxId && contextId) params.contextId = contextId;
-      const res = await Promise.race([
-        cdp.send('Runtime.evaluate', params).catch(e => ({ _error: e.message })),
-        wait(5000).then(() => ({ _timeout: true }))
-      ]);
-      if (res._timeout) {
-        if (useCtxId) { contextId = null; continue; } // stale contextId caused hang
-        throw new Error('cdpEval timeout (5s)');
-      }
-      if (res._error) {
-        const isCtxErr = res._error.includes('Target closed') || res._error.includes('context') || res._error.includes('Cannot find');
-        if (useCtxId && isCtxErr) { contextId = null; continue; }
-        throw new Error('cdpEval error: ' + res._error);
-      }
-      if (res.exceptionDetails) {
-        throw new Error(res.exceptionDetails.exception?.description || res.exceptionDetails.text || 'eval exception');
-      }
-      return res.result ? res.result.value : undefined;
-    }
-  };
-
-  // Navigate and wait for main frame's context
-  const gotoAndWaitContext = async (url, maxMs, label) => {
-    contextId = null;
-    contextReady = false;
-    page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
-    const start = Date.now();
-    currentStep = label + ' [waiting for context]';
-    while (!contextReady && Date.now() - start < maxMs) await wait(300);
-    const elapsed = Date.now() - start;
-    if (!contextReady) throw new Error(`${label}: no JS context after ${elapsed}ms`);
-    currentStep = label + ` [context in ${elapsed}ms] url=` + page.url();
+    return null;
   };
 
   // ── Login ──────────────────────────────────────────────────────────────────
-  await gotoAndWaitContext('https://background.tagesspiegel.de/login', 30000, 'login page');
-  await wait(3000); // let React/Next.js mount
+  currentStep = 'goto login page';
+  page.goto('https://background.tagesspiegel.de/login', { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
+  await wait(5000); // let initial frames register
 
-  // Poll for email input (use _username selector found from diagnostics, plus fallbacks)
-  currentStep = 'waiting for email input';
-  let emailReady = false;
-  const emailPollStart = Date.now();
-  while (!emailReady && Date.now() - emailPollStart < 20000) {
-    if (!contextReady || !contextId) { await wait(300); continue; }
-    try {
-      const found = await cdpEval(
-        `!!(document.querySelector('input[type=email]') || document.querySelector('input[name="_username"]') || document.querySelector('input[name="email"]'))`
-      );
-      if (found) { emailReady = true; break; }
-    } catch(e) { /* context transitioning, retry */ }
-    await wait(500);
+  // Poll all frames for email input (handles cross-origin login iframes)
+  currentStep = 'waiting for email input in frames';
+  let targetFrame = null;
+  const emailExpr = `!!(document.querySelector('input[type=email]') || document.querySelector('input[name="_username"]'))`;
+  const pollStart = Date.now();
+  while (!targetFrame && Date.now() - pollStart < 30000) {
+    const match = await evalInAllFrames(emailExpr);
+    if (match) { targetFrame = match.frame; break; }
+    await wait(1000);
   }
 
-  if (!emailReady) {
-    let diagInfo = 'n/a';
-    try {
-      diagInfo = await cdpEval(`JSON.stringify({
-        url: location.href,
-        title: document.title,
-        inputs: [...document.querySelectorAll('input')].map(i => i.type+':'+i.name+':'+i.id).join(', '),
-        text: document.body ? document.body.innerText.slice(0,200).replace(/\\s+/g,' ') : 'empty'
-      })`);
-    } catch(e) { diagInfo = 'eval failed: ' + e.message; }
-    throw new Error(`email input not found after 20s — ${diagInfo}`);
+  if (!targetFrame) {
+    const frameUrls = page.frames().map(f => f.url()).join(' | ');
+    let mainText = 'n/a';
+    try { mainText = await frameEval(page.mainFrame(), `document.body ? document.body.innerText.slice(0,200).replace(/\\s+/g,' ') : 'no body'`, 3000); } catch(e) {}
+    throw new Error(`email input not found after 30s. frames=[${frameUrls}] body="${mainText}"`);
   }
 
   currentStep = 'fill email';
-  await cdpEval(`(function() {
+  await frameEval(targetFrame, `(function() {
     var input = document.querySelector('input[type=email]') || document.querySelector('input[name="_username"]');
     var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
     setter.call(input, '${EMAIL.replace(/'/g, "\\'")}');
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
-  })()`);
+  })()`, 5000);
 
   currentStep = 'fill password';
-  await cdpEval(`(function() {
+  await frameEval(targetFrame, `(function() {
     var input = document.querySelector('input[type=password]') || document.querySelector('input[name="_password"]');
     if (!input) throw new Error('password input not found');
     var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
     setter.call(input, '${PASSWORD.replace(/'/g, "\\'")}');
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
-  })()`);
+  })()`, 5000);
 
   currentStep = 'click submit';
-  contextReady = false;
-  await cdpEval(`(function() {
+  await frameEval(targetFrame, `(function() {
     var btn = document.querySelector('button[type=submit]');
     if (!btn) throw new Error('submit button not found');
     btn.click();
-  })()`);
+  })()`, 5000);
 
-  // Wait for post-submit redirect
-  currentStep = 'post-login redirect [waiting for context]';
+  // Wait for URL to leave /login (post-submit redirect)
+  currentStep = 'waiting for post-login redirect';
   const redirectStart = Date.now();
-  while (!contextReady && Date.now() - redirectStart < 25000) await wait(300);
-  if (!contextReady) throw new Error(`post-login redirect: no JS context after ${Date.now() - redirectStart}ms`);
+  while (page.url().includes('/login') && Date.now() - redirectStart < 30000) {
+    await wait(500);
+  }
+  if (page.url().includes('/login')) throw new Error(`still on login after 30s — login may have failed`);
   currentStep = 'login done url=' + page.url();
 
   // ── Article List ───────────────────────────────────────────────────────────
-  await gotoAndWaitContext(LIST_URL, 30000, 'list page');
-  await wait(2000);
+  currentStep = 'goto list page';
+  page.goto(LIST_URL, { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
+  await wait(5000);
 
-  currentStep = 'count articles';
-  const articleCount = await cdpEval(`document.querySelectorAll('div.ts-article-tile').length`);
+  // Poll for article tiles to appear
+  currentStep = 'waiting for article tiles';
+  let articleCount = 0;
+  const listPollStart = Date.now();
+  while (Date.now() - listPollStart < 30000) {
+    const match = await evalInAllFrames(`(function() {
+      var n = document.querySelectorAll('div.ts-article-tile').length;
+      return n > 0 ? n : false;
+    })()`);
+    if (match) { articleCount = match.result; break; }
+    await wait(1000);
+  }
   currentStep = 'articles found=' + articleCount;
 
-  const firstUrl = await cdpEval(`(function() {
+  const firstMatch = await evalInAllFrames(`(function() {
     var a = document.querySelector('div.ts-article-tile a.stretched-link');
-    return a ? a.href : 'not found';
+    return a ? a.href : false;
   })()`);
+  const firstUrl = firstMatch ? firstMatch.result : 'not found';
 
   return `SUCCESS\nlogin=OK\npost-login url=${page.url()}\narticles=${articleCount}\nfirst=${firstUrl}`;
 };
