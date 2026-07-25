@@ -1,191 +1,33 @@
-// ── Pre-run setup (run in terminal before executing this node) ────────────────
-// Switch to INTERNAL runner (runs in n8n container — Chromium confirmed working there):
-//    kubectl set env deployment/n8n -n preme-n8n -c n8n N8N_RUNNERS_MODE=internal
-//    kubectl rollout restart deployment/n8n -n preme-n8n
-//    kubectl get pods -n preme-n8n -w
-//
-// Set timeout to 120s:
-//    kubectl set env deployment/n8n -n preme-n8n -c n8n N8N_RUNNERS_TASK_TIMEOUT=120
-//
-// Revert after debug:
-//    kubectl set env deployment/n8n -n preme-n8n -c n8n N8N_RUNNERS_MODE=external
-//    kubectl set env deployment/n8n -n preme-n8n -c n8n N8N_RUNNERS_TASK_TIMEOUT=600
+// ── Minimal crash diagnostic — just launch + close Chromium ──────────────────
+// If this crashes: Chromium launch itself fails in task-runner container
+// If this succeeds: crash is during navigation (we add steps back after)
 
 const puppeteer = require('puppeteer-extra');
 const Stealth = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(Stealth());
 
-const EMAIL = 'YOUR_EMAIL';
-const PASSWORD = 'YOUR_PASSWORD';
-const LIST_URL = 'https://background.tagesspiegel.de/digitalisierung-und-ki';
-
 const wait = ms => new Promise(r => setTimeout(r, ms));
-
-let currentStep = 'init';
 let browser = null;
-let page = null;
-let httpStatus = 'NO_RESPONSE';
-let firstByteMs = null;
-
-const overallTimeout = wait(110000).then(() => {
-  throw new Error(`OVERALL TIMEOUT (110s) — stuck at: [${currentStep}]`);
-});
 
 const main = async () => {
-  currentStep = 'launch browser';
   browser = await puppeteer.launch({
     executablePath: '/usr/lib/chromium/chromium',
     headless: true,
     ignoreHTTPSErrors: true,
     args: [
       '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
-      '--ignore-certificate-errors',
-      '--proxy-server=http://proxy.idst.ibaintern.de:8080',
-      '--disable-gpu', '--no-zygote', '--disable-extensions',
-      '--disable-background-networking', '--disable-default-apps',
-      '--disable-sync', '--no-first-run', '--mute-audio'
+      '--ignore-certificate-errors', '--disable-gpu', '--no-zygote',
+      '--disable-extensions', '--disable-background-networking'
     ]
   });
 
-  page = await browser.newPage();
-  page.setDefaultTimeout(0);
-  page.setDefaultNavigationTimeout(0);
-  await page.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE,de;q=0.9' });
-
-  const navStart = Date.now();
-  page.on('response', res => {
-    if (res.url().includes('tagesspiegel.de') && firstByteMs === null) {
-      firstByteMs = Date.now() - navStart;
-      httpStatus = res.status();
-    }
-  });
-
-  // Block scripts on login page so DOMContentLoaded fires fast (scripts hang via proxy SSL inspection).
-  // Flag flipped to false before navigating to list page so article tiles can render.
-  let blockScripts = true;
-  await page.setRequestInterception(true);
-  // req.abort() and req.continue() return promises — on Node.js v24 an unhandled
-  // rejection crashes the process (kills the task-runner WebSocket). Always catch.
-  page.on('request', req => {
-    const t = req.resourceType();
-    if (blockScripts) {
-      if (['image', 'stylesheet', 'font', 'media', 'script', 'other'].includes(t)) {
-        req.abort().catch(() => {});
-      } else {
-        req.continue().catch(() => {});
-      }
-    } else {
-      if (['image', 'font', 'media'].includes(t)) {
-        req.abort().catch(() => {});
-      } else {
-        req.continue().catch(() => {});
-      }
-    }
-  });
-
-  // Navigate via window.location.href instead of page.goto().
-  // page.goto() creates a puppeteer LifecycleWatcher that throws "Navigating frame
-  // was detached" / "Attempted to use detached Frame" when redirect chains cross
-  // origins and Chromium replaces the renderer process.
-  // window.location.href assignment returns immediately (before navigation starts),
-  // so puppeteer never gets a chance to throw. We then poll for what we need.
-  const navigate = async (url) => {
-    try {
-      await page.evaluate(`window.location.href = '${url.replace(/'/g, "\\'")}'`);
-    } catch(e) {
-      // Ignore — current frame may have already been replaced by a prior navigation
-    }
-  };
-
-  // poll(expr, maxMs): evaluate string expr every 500ms until truthy or timeout.
-  // Catches all errors (frame still transitioning) and retries silently.
-  const poll = async (expr, maxMs) => {
-    const deadline = Date.now() + maxMs;
-    while (Date.now() < deadline) {
-      try {
-        const v = await page.evaluate(expr);
-        if (v) return v;
-      } catch(e) {}
-      await wait(500);
-    }
-    return null;
-  };
-
-  // ── Login ──────────────────────────────────────────────────────────────────
-  currentStep = 'navigate to login page';
-  await navigate('https://background.tagesspiegel.de/login');
-
-  currentStep = 'waiting for email input';
-  const hasEmail = await poll(
-    `!!(document.querySelector('input[type=email]') || document.querySelector('input[name="_username"]') || document.querySelector('input[name="email"]'))`,
-    45000
-  );
-
-  if (!hasEmail) {
-    let title = 'eval-fail', body = 'eval-fail', url = 'unknown';
-    try { title = await page.evaluate(`document.title`); } catch(e) {}
-    try { body = await page.evaluate(`document.body ? document.body.innerText.slice(0,300).replace(/\\s+/g,' ') : 'no body'`); } catch(e) {}
-    try { url = await page.evaluate(`window.location.href`); } catch(e) {}
-    throw new Error(`email input not found after 45s.\nhttpStatus=${httpStatus} firstByteMs=${firstByteMs}\ntitle="${title}" url=${url}\nbody="${body}"`);
-  }
-
-  currentStep = 'fill email';
-  await page.evaluate(`(function() {
-    var input = document.querySelector('input[type=email]') || document.querySelector('input[name="_username"]') || document.querySelector('input[name="email"]');
-    var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    setter.call(input, '${EMAIL.replace(/'/g, "\\'")}');
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-  })()`);
-
-  currentStep = 'fill password';
-  await page.evaluate(`(function() {
-    var input = document.querySelector('input[type=password]') || document.querySelector('input[name="_password"]');
-    if (!input) throw new Error('password input not found');
-    var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    setter.call(input, '${PASSWORD.replace(/'/g, "\\'")}');
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-  })()`);
-
-  currentStep = 'click submit';
-  await page.evaluate(`document.querySelector('button[type=submit]').click()`);
-
-  // Poll URL until off /login — no waitForNavigation needed
-  currentStep = 'waiting for post-login redirect';
-  const redirectStart = Date.now();
-  while (Date.now() - redirectStart < 30000) {
-    try {
-      const u = await page.evaluate(`window.location.href`);
-      if (u && !u.includes('/login')) break;
-    } catch(e) {}
-    await wait(500);
-  }
-  const postLoginUrl = await page.evaluate(`window.location.href`).catch(() => 'eval-fail');
-  if (postLoginUrl.includes('/login')) throw new Error(`still on login after 30s — login failed. url=${postLoginUrl}`);
-  currentStep = 'login done url=' + postLoginUrl;
-
-  // ── Article List ───────────────────────────────────────────────────────────
-  blockScripts = false;
-  currentStep = 'navigate to list page';
-  await navigate(LIST_URL);
-
-  currentStep = 'waiting for article tiles';
-  const articleCount = await poll(`(function() {
-    var n = document.querySelectorAll('div.ts-article-tile').length;
-    return n > 0 ? n : null;
-  })()`, 25000) || 0;
-
-  const firstUrl = await page.evaluate(`(function() {
-    var a = document.querySelector('div.ts-article-tile a.stretched-link');
-    return a ? a.href : 'not found';
-  })()`).catch(() => 'eval-fail');
-
-  return `SUCCESS\nhttpStatus=${httpStatus} firstByteMs=${firstByteMs}\nlogin=OK\npost-login url=${postLoginUrl}\narticles=${articleCount}\nfirst=${firstUrl}`;
+  const page = await browser.newPage();
+  await wait(3000);
+  return 'STEP1 OK: browser launched, page created, waited 3s';
 };
 
 try {
-  const result = await Promise.race([main(), overallTimeout]);
+  const result = await main();
   throw new Error(result);
 } catch(e) {
   if (browser) await Promise.race([browser.close(), wait(2000)]).catch(() => {});
