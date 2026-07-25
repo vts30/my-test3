@@ -1,6 +1,16 @@
-// ── Set task-runner timeout to 120s for this debug ───────────────────────────
-// kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_TASK_TIMEOUT=120
-// To revert: kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_TASK_TIMEOUT=60
+// ── Pre-run setup (run in terminal before executing this node) ────────────────
+// 1. Increase task-runner memory (Chromium needs ~1-2 GB):
+//    kubectl set resources deployment/n8n -n preme-n8n -c task-runner --limits=memory=2Gi --requests=memory=512Mi
+//    kubectl rollout restart deployment/n8n -n preme-n8n
+//
+// 2. Set task-runner timeout to 120s:
+//    kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_TASK_TIMEOUT=120
+//
+// Check current limits:
+//    kubectl get deployment n8n -n preme-n8n -o jsonpath='{range .spec.template.spec.containers[*]}{.name}: {.resources}{"\n"}{end}'
+//
+// Revert timeout after debug:
+//    kubectl set env deployment/n8n -n preme-n8n -c task-runner N8N_RUNNERS_TASK_TIMEOUT=60
 
 const puppeteer = require('puppeteer-extra');
 const Stealth = require('puppeteer-extra-plugin-stealth');
