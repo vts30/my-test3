@@ -105,15 +105,22 @@ const main = async () => {
   })()`);
 
   currentStep = 'click submit';
+  contextReady = false;
   await cdpEval(`(function() {
     var btn = document.querySelector('button[type=submit]');
     if (!btn) throw new Error('submit button not found');
     btn.click();
   })()`);
 
-  // Wait for redirect after login
-  await gotoAndWaitContext('https://background.tagesspiegel.de/login', 15000, 'post-login redirect');
-
+  // Wait for post-submit navigation (don't call goto — just wait for context of redirect page)
+  currentStep = 'post-login redirect [waiting for context]';
+  const redirectStart = Date.now();
+  while (!contextReady && Date.now() - redirectStart < 25000) {
+    await wait(300);
+  }
+  if (!contextReady) throw new Error(`post-login redirect: no JS context after ${Date.now() - redirectStart}ms`);
+  await cdpSend('Page.stopLoading');
+  await wait(300);
   currentStep = 'login done url=' + page.url();
 
   // ── Article List ───────────────────────────────────────────────────────────
